@@ -1,38 +1,135 @@
 package com.sangueplus.api.services
 
+import com.sangueplus.api.dtos.CadastroDoadorRequest
+import com.sangueplus.api.dtos.UsuarioResponse
 import com.sangueplus.api.models.Usuario
 import com.sangueplus.api.repositories.UsuarioRepository
+import org.springframework.http.HttpStatus
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
+import org.springframework.web.server.ResponseStatusException
 import java.time.LocalDate
 import java.time.Period
+import java.time.ZoneId
+import java.util.Locale
 
 @Service
-class UsuarioService(private val repository: UsuarioRepository) {
+class UsuarioService(
+    private val repository: UsuarioRepository
+) {
+    private val passwordEncoder = BCryptPasswordEncoder()
 
-    fun cadastrarDoador(usuario: Usuario): Usuario {
-        // RN003: Validação de E-mail Único
-        if (repository.existsByEmail(usuario.email)) {
-            throw IllegalArgumentException("MSG016: Este E-mail já está cadastrado no sistema.")
+    private val tiposPermitidos = setOf(
+        "A+", "A-",
+        "B+", "B-",
+        "AB+", "AB-",
+        "O+", "O-",
+        "Nao_Sei"
+    )
+
+    @Transactional
+    fun cadastrarDoador(
+        request: CadastroDoadorRequest
+    ): UsuarioResponse {
+        val nome = request.nome.trim()
+        val email = request.email.trim().lowercase(Locale.ROOT)
+
+        val telefone = request.telefone
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+
+        validar(
+            nome.length in 2..100,
+            "Informe um nome entre 2 e 100 caracteres."
+        )
+
+        validar(
+            email.length <= 100 &&
+                    Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")
+                        .matches(email),
+            "Informe um e-mail válido."
+        )
+
+        validar(
+            telefone == null || telefone.length <= 30,
+            "O telefone deve ter no máximo 30 caracteres."
+        )
+
+        validar(
+            request.senha.length >= 6 &&
+                    request.senha.toByteArray(Charsets.UTF_8).size <= 72 &&
+                    request.senha.any { it.isUpperCase() } &&
+                    request.senha.any {
+                        !it.isLetterOrDigit() && !it.isWhitespace()
+                    },
+            "A senha deve ter pelo menos 6 caracteres, " +
+                    "uma letra maiúscula e um caractere especial, " +
+                    "com limite de 72 bytes."
+        )
+
+        validar(
+            request.tipoSanguineo in tiposPermitidos,
+            "Tipo sanguíneo inválido. " +
+                    "Use A+, A-, B+, B-, AB+, AB-, O+, O- ou Nao_Sei."
+        )
+
+        val hoje = LocalDate.now(
+            ZoneId.of("America/Sao_Paulo")
+        )
+
+        validar(
+            !request.dataNascimento.isAfter(hoje),
+            "A data de nascimento não pode estar no futuro."
+        )
+
+        val idade = Period.between(
+            request.dataNascimento,
+            hoje
+        ).years
+
+        validar(
+            idade >= 16,
+            "O cadastro de doador está disponível a partir de 16 anos."
+        )
+
+        if (repository.existsByEmailIgnoreCase(email)) {
+            throw ResponseStatusException(
+                HttpStatus.CONFLICT,
+                "Este e-mail já está cadastrado."
+            )
         }
 
-        // RN002: Validação da Força da Senha (Mínimo 6 chars, 1 Maiúscula, 1 Especial)
-        val senhaRegex = "^(?=.*[A-Z])(?=.*[!@#\$%]).{6,}\$".toRegex()
-        if (!senhaRegex.matches(usuario.senhaHash)) {
-            throw IllegalArgumentException("MSG008: A senha deve conter no mínimo 6 caracteres, incluindo uma letra maiúscula e um caractere especial (!@#\$%).")
+        val senhaHash = requireNotNull(
+            passwordEncoder.encode(request.senha)
+        ) {
+            "Não foi possível gerar o hash da senha."
         }
 
-        // RN004: Restrição Etária (Mínimo 16, Máximo 69 anos)
-        usuario.dataNascimento?.let {
-            val idade = Period.between(it, LocalDate.now()).years
-            if (idade < 16 || idade > 69) {
-                throw IllegalArgumentException("MSG021: Idade incompatível com os critérios regulamentares de doação de sangue.")
-            }
+        val usuario = Usuario(
+            nome = nome,
+            email = email,
+            senhaHash = senhaHash,
+            tipoUsuario = "doador",
+            tipoSanguineo = request.tipoSanguineo,
+            telefone = telefone,
+            dataNascimento = request.dataNascimento
+        )
+
+        return UsuarioResponse.from(
+            repository.saveAndFlush(usuario)
+        )
+    }
+
+    private fun validar(
+        condicao: Boolean,
+        mensagem: String
+    ) {
+        if (!condicao) {
+            throw ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                mensagem
+            )
         }
-
-        // Define os valores padrão para garantir que é um Doador com status não verificado
-        usuario.tipoUsuario = "doador"
-
-        // Salva as informações validadas na base de dados PostgreSQL
-        return repository.save(usuario)
     }
 }

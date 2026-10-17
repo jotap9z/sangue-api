@@ -1,0 +1,105 @@
+@baseUrl = http://localhost:8080
+@tokenDoador = COLE_O_TOKEN_DO_DOADOR
+@tokenHemocentro = COLE_O_TOKEN_DO_HEMOCENTRO
+
+### 1. Login do doador existente
+### Copie o token retornado para tokenDoador
+
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "doador.teste@example.com",
+  "senha": "Teste@123"
+}
+
+### 2. Responder sem alertas iniciais
+### Esperado: 201 e SEM_ALERTAS_INICIAIS
+### Considerando doador adulto com menos de 60 anos
+
+POST {{baseUrl}}/api/doadores/me/pre-triagens
+Authorization: Bearer {{tokenDoador}}
+Content-Type: application/json
+
+{
+  "pesoKg": 70.5,
+  "bemDeSaude": true,
+  "sintomasRecentes": false,
+  "cirurgiaRecente": false,
+  "tatuagemOuPiercingRecente": false,
+  "gravidaOuAmamentando": false,
+  "condicaoDeSaudeOuMedicamento": false,
+  "descansadoEAlimentado": true
+}
+
+### 3. Consultar a última pré-triagem
+### Esperado: 200 com o mesmo id do teste 2
+
+GET {{baseUrl}}/api/doadores/me/pre-triagens/ultima
+Authorization: Bearer {{tokenDoador}}
+
+### 4. Respostas com alertas
+### Esperado: 201 e NECESSITA_AVALIACAO com motivos
+
+POST {{baseUrl}}/api/doadores/me/pre-triagens
+Authorization: Bearer {{tokenDoador}}
+Content-Type: application/json
+
+{
+  "pesoKg": 48,
+  "bemDeSaude": false,
+  "sintomasRecentes": true,
+  "cirurgiaRecente": false,
+  "tatuagemOuPiercingRecente": true,
+  "gravidaOuAmamentando": false,
+  "condicaoDeSaudeOuMedicamento": false,
+  "descansadoEAlimentado": true,
+  "observacoes": "Solicito orientação do hemocentro."
+}
+
+### 5. Conferir persistência do resultado mais recente
+### Esperado: 200 com o mesmo id do teste 4
+
+GET {{baseUrl}}/api/doadores/me/pre-triagens/ultima
+Authorization: Bearer {{tokenDoador}}
+
+### 6. Perguntas não respondidas
+### Esperado: 400
+
+POST {{baseUrl}}/api/doadores/me/pre-triagens
+Authorization: Bearer {{tokenDoador}}
+Content-Type: application/json
+
+{
+  "pesoKg": 70
+}
+
+### 7. Peso inválido
+### Esperado: 400
+
+POST {{baseUrl}}/api/doadores/me/pre-triagens
+Authorization: Bearer {{tokenDoador}}
+Content-Type: application/json
+
+{
+  "pesoKg": -1,
+  "bemDeSaude": true,
+  "sintomasRecentes": false,
+  "cirurgiaRecente": false,
+  "tatuagemOuPiercingRecente": false,
+  "gravidaOuAmamentando": false,
+  "condicaoDeSaudeOuMedicamento": false,
+  "descansadoEAlimentado": true
+}
+
+### 8. Consulta sem sessão
+### Esperado: 401
+
+GET {{baseUrl}}/api/doadores/me/pre-triagens/ultima
+
+### 9. Hemocentro tentando acessar pré-triagem pessoal de doador
+### Use um token válido do hemocentro
+### Esperado: 403
+
+GET {{baseUrl}}/api/doadores/me/pre-triagens/ultima
+Authorization: Bearer {{tokenHemocentro}}
