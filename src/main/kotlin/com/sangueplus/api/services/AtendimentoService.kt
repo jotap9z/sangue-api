@@ -19,7 +19,8 @@ class AtendimentoService(
     private val agendamentos: AgendamentoRepository,
     private val doacoes: DoacaoRepository,
     private val usuarios: UsuarioRepository,
-    private val auth: AuthService
+    private val auth: AuthService,
+    private val intervalos: IntervaloService
 ) {
     private val zona = ZoneId.of("America/Sao_Paulo")
 
@@ -42,7 +43,6 @@ class AtendimentoService(
             agendamentoId
         )
 
-        // Repetir a chegada não cria outro atendimento.
         if (agendamento.status == StatusAgendamento.EM_ATENDIMENTO) {
             return AtendimentoResponse.from(agendamento)
         }
@@ -139,7 +139,6 @@ class AtendimentoService(
             "As observações"
         )
 
-        // Repetição com os mesmos dados devolve a doação existente.
         val existente = doacoes.findByAgendamento_Id(agendamento.id)
 
         if (existente != null) {
@@ -162,6 +161,12 @@ class AtendimentoService(
             StatusAgendamento.APROVADO_TRIAGEM,
             "A coleta só pode ser registrada após aprovação " +
                     "na triagem presencial."
+        )
+
+        // O doador já está bloqueado pela transação.
+        // Outra coleta concorrente desse doador terá de aguardar.
+        intervalos.exigirIntervaloParaColeta(
+            agendamento.doador.id
         )
 
         val doacao = doacoes.saveAndFlush(
@@ -219,9 +224,11 @@ class AtendimentoService(
 
         verificarInstituicao(responsavel, leitura)
 
-        // Mantém a ordem de bloqueio: doador antes do agendamento.
         usuarios.buscarParaAgendamento(leitura.doador.id)
-            ?: falhar(HttpStatus.NOT_FOUND, "Doador não encontrado.")
+            ?: falhar(
+                HttpStatus.NOT_FOUND,
+                "Doador não encontrado."
+            )
 
         val agendamento =
             agendamentos.buscarParaAlteracao(agendamentoId)

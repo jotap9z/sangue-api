@@ -1,0 +1,144 @@
+@baseUrl = http://localhost:8080
+
+@tokenDoador = COLE_O_TOKEN_DO_DOADOR
+@tokenHemocentro = COLE_O_TOKEN_DO_HEMOCENTRO
+
+@horarioId = 0
+@agendamentoId = 0
+
+### Atualize o teste 4 com um horário de hoje,
+### entre 10 e 30 minutos à frente da hora atual.
+
+### 1. Login do doador
+### Copie o token para tokenDoador
+
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "doador.teste@example.com",
+  "senha": "Teste@123"
+}
+
+### 2. Login do hemocentro
+### Copie o token para tokenHemocentro
+
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "responsavel.slz@example.com",
+  "senha": "Teste@123"
+}
+
+### 3. Consultar intervalo antes da configuração
+### Esperado: 200 com PERFIL_PENDENTE
+### O histórico existente deve ser preservado
+
+GET {{baseUrl}}/api/doadores/me/intervalo
+Authorization: Bearer {{tokenDoador}}
+
+### 4. Criar horário para avaliação hoje
+### Ajuste inicio antes de executar
+### Esperado: 201
+### Copie id para horarioId
+
+POST {{baseUrl}}/api/hemocentros/me/horarios
+Authorization: Bearer {{tokenHemocentro}}
+Content-Type: application/json
+
+{
+  "inicio": "2026-10-17T20:50:00",
+  "capacidade": 1
+}
+
+### 5. Agendar avaliação
+### Esperado: 201
+### Copie id para agendamentoId
+
+POST {{baseUrl}}/api/doadores/me/agendamentos
+Authorization: Bearer {{tokenDoador}}
+Content-Type: application/json
+
+{
+  "horarioId": {{horarioId}}
+}
+
+### 6. Registrar chegada
+### Esperado: 200, EM_ATENDIMENTO
+
+POST {{baseUrl}}/api/hemocentros/me/agendamentos/{{agendamentoId}}/chegada
+Authorization: Bearer {{tokenHemocentro}}
+
+### 7. Definir regra aplicável ao doador de demonstração
+### Esperado: 200, AGUARDANDO_INTERVALO
+### Se a última doação foi em 17/10/2026,
+### a previsão pela regra de dois meses será 17/12/2026
+
+PUT {{baseUrl}}/api/hemocentros/me/agendamentos/{{agendamentoId}}/regra-intervalo
+Authorization: Bearer {{tokenHemocentro}}
+Content-Type: application/json
+
+{
+  "regra": "DOIS_MESES_QUATRO_DOACOES"
+}
+
+### 8. Consultar previsão como doador
+### Esperado: 200, mesma previsão do teste 7
+
+GET {{baseUrl}}/api/doadores/me/intervalo
+Authorization: Bearer {{tokenDoador}}
+
+### 9. Simular aprovação presencial para testar a proteção da coleta
+### Apenas para os dados acadêmicos de demonstração
+### Esperado: 200, APROVADO_TRIAGEM
+
+POST {{baseUrl}}/api/hemocentros/me/agendamentos/{{agendamentoId}}/triagem-presencial
+Authorization: Bearer {{tokenHemocentro}}
+Content-Type: application/json
+
+{
+  "aprovado": true,
+  "observacao": "Simulação acadêmica para testar bloqueio por intervalo."
+}
+
+### 10. Tentar registrar segunda coleta antecipada
+### Esperado: 409, intervalo ainda não cumprido
+### Não deve criar outra doação
+
+POST {{baseUrl}}/api/hemocentros/me/agendamentos/{{agendamentoId}}/doacao
+Authorization: Bearer {{tokenHemocentro}}
+Content-Type: application/json
+
+{
+  "tipoSanguineoConfirmado": "O+",
+  "observacoes": "Tentativa de coleta antecipada em teste."
+}
+
+### 11. Conferir histórico
+### Esperado: nenhuma nova doação criada pelo teste 10
+
+GET {{baseUrl}}/api/doadores/me/doacoes
+Authorization: Bearer {{tokenDoador}}
+
+### 12. Doador tentando alterar sua própria regra
+### Esperado: 403
+
+PUT {{baseUrl}}/api/hemocentros/me/agendamentos/{{agendamentoId}}/regra-intervalo
+Authorization: Bearer {{tokenDoador}}
+Content-Type: application/json
+
+{
+  "regra": "TRES_MESES_TRES_DOACOES"
+}
+
+### 13. Consulta sem sessão
+### Esperado: 401
+
+GET {{baseUrl}}/api/doadores/me/intervalo
+
+### 14. Hemocentro usando rota pessoal de doador
+### Esperado: 403
+
+GET {{baseUrl}}/api/doadores/me/intervalo
+Authorization: Bearer {{tokenHemocentro}}
