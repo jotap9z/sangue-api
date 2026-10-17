@@ -1,0 +1,30 @@
+package com.sangueplus.api.models
+
+import jakarta.persistence.*
+import java.time.LocalDateTime
+
+@Entity
+@Table(name = "hemocentros")
+data class Hemocentro(
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    val id: Long = 0,
+
+    @Column(nullable = false, length = 150)
+    var nome: String,
+
+    @Column(nullable = false, length = 255)
+    var endereco: String,
+
+    @Column(nullable = false, length = 100)
+    var cidade: String,
+
+    @Column(nullable = false, length = 50)
+    var estado: String,
+
+    @Column(length = 20)
+    var telefone: String? = null,
+
+    @Column(name = "criado_em", insertable = false, updatable = false)
+    val criadoEm: LocalDateTime? = null
+)

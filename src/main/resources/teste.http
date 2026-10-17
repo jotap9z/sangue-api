@@ -1,0 +1,126 @@
+@baseUrl = http://localhost:8080
+@token = COLE_O_TOKEN_RETORNADO_PELO_LOGIN
+
+### 1. Cadastro de doador
+### Esperado: 201 Created, sem senha na resposta
+
+POST {{baseUrl}}/api/usuarios/doador
+Content-Type: application/json
+
+{
+  "nome": "Doador Teste",
+  "email": "doador.teste@example.com",
+  "senha": "Teste@123",
+  "dataNascimento": "2000-05-15",
+  "tipoSanguineo": "O+",
+  "telefone": "98999999999"
+}
+
+### 2. Cadastro duplicado
+### Execute depois do teste 1
+### Esperado: 409 Conflict
+
+POST {{baseUrl}}/api/usuarios/doador
+Content-Type: application/json
+
+{
+  "nome": "Doador Teste",
+  "email": "DOADOR.TESTE@example.com",
+  "senha": "Teste@123",
+  "dataNascimento": "2000-05-15",
+  "tipoSanguineo": "O+",
+  "telefone": "98999999999"
+}
+
+### 3. Senha fraca
+### Esperado: 400 Bad Request
+
+POST {{baseUrl}}/api/usuarios/doador
+Content-Type: application/json
+
+{
+  "nome": "Teste Senha",
+  "email": "senha.fraca@example.com",
+  "senha": "123456",
+  "dataNascimento": "2000-05-15",
+  "tipoSanguineo": "A+"
+}
+
+### 4. Data de nascimento ausente
+### Esperado: 400 Bad Request
+
+POST {{baseUrl}}/api/usuarios/doador
+Content-Type: application/json
+
+{
+  "nome": "Teste Data",
+  "email": "sem.data@example.com",
+  "senha": "Teste@123",
+  "tipoSanguineo": "A+"
+}
+
+### 5. Tipo sanguíneo inválido
+### Esperado: 400 Bad Request
+
+POST {{baseUrl}}/api/usuarios/doador
+Content-Type: application/json
+
+{
+  "nome": "Teste Tipo",
+  "email": "tipo.invalido@example.com",
+  "senha": "Teste@123",
+  "dataNascimento": "2000-05-15",
+  "tipoSanguineo": "X+"
+}
+
+### 6. Login correto
+### Esperado: 200 OK com token
+### Copie o token retornado para a variável token no início deste arquivo
+
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "doador.teste@example.com",
+  "senha": "Teste@123"
+}
+
+### 7. Consultar usuário autenticado
+### Esperado: 200 OK
+
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer {{token}}
+
+### 8. Login com senha incorreta
+### Esperado: 401 Unauthorized
+
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "doador.teste@example.com",
+  "senha": "SenhaErrada@123"
+}
+
+### 9. Consulta sem autenticação
+### Esperado: 401 Unauthorized
+
+GET {{baseUrl}}/api/auth/me
+
+### 10. Consulta com token inválido
+### Esperado: 401 Unauthorized
+
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer token-invalido
+
+### 11. Logout
+### Esperado: 204 No Content
+
+POST {{baseUrl}}/api/auth/logout
+Authorization: Bearer {{token}}
+
+### 12. Reutilização do token após logout
+### Esperado: 401 Unauthorized
+
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer {{token}}
