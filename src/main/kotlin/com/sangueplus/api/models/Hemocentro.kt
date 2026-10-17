@@ -5,12 +5,12 @@ import java.time.LocalDateTime
 
 @Entity
 @Table(name = "hemocentros")
-data class Hemocentro(
+class Hemocentro(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long = 0,
 
-    @Column(nullable = false, length = 150)
+    @Column(nullable = false, unique = true, length = 150)
     var nome: String,
 
     @Column(nullable = false, length = 255)
@@ -25,6 +25,6 @@ data class Hemocentro(
     @Column(length = 20)
     var telefone: String? = null,
 
-    @Column(name = "criado_em", insertable = false, updatable = false)
-    val criadoEm: LocalDateTime? = null
+    @Column(name = "criado_em", updatable = false)
+    val criadoEm: LocalDateTime = LocalDateTime.now()
 )

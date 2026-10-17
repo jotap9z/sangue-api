@@ -6,7 +6,7 @@ import java.time.LocalDateTime
 
 @Entity
 @Table(name = "usuarios")
-data class Usuario(
+class Usuario(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long = 0,
@@ -31,6 +31,10 @@ data class Usuario(
     @Column(name = "data_nascimento")
     var dataNascimento: LocalDate? = null,
 
-    @Column(name = "criado_em", insertable = false, updatable = false)
-    val criadoEm: LocalDateTime? = null
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "hemocentro_id")
+    var hemocentro: Hemocentro? = null,
+
+    @Column(name = "criado_em", updatable = false)
+    val criadoEm: LocalDateTime = LocalDateTime.now()
 )

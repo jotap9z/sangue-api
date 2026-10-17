@@ -25,7 +25,8 @@ data class UsuarioResponse(
     val tipoUsuario: String,
     val tipoSanguineo: String,
     val telefone: String?,
-    val dataNascimento: LocalDate?
+    val dataNascimento: LocalDate?,
+    val hemocentroId: Long?
 ) {
     companion object {
         fun from(usuario: Usuario): UsuarioResponse =
@@ -36,7 +37,8 @@ data class UsuarioResponse(
                 tipoUsuario = usuario.tipoUsuario,
                 tipoSanguineo = usuario.tipoSanguineo,
                 telefone = usuario.telefone,
-                dataNascimento = usuario.dataNascimento
+                dataNascimento = usuario.dataNascimento,
+                hemocentroId = usuario.hemocentro?.id
             )
     }
 }

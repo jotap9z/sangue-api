@@ -2,12 +2,29 @@ package com.sangueplus.api.repositories
 
 import com.sangueplus.api.models.Hemocentro
 import org.springframework.data.jpa.repository.JpaRepository
-import org.springframework.stereotype.Repository
+import org.springframework.data.jpa.repository.Query
+import org.springframework.data.repository.query.Param
 
-@Repository
 interface HemocentroRepository : JpaRepository<Hemocentro, Long> {
-    fun findByCidadeContainingIgnoreCaseOrEstadoContainingIgnoreCase(cidade: String, estado: String): List<Hemocentro>
+    fun existsByNomeIgnoreCase(nome: String): Boolean
 
-    // Adicionado para verificar se já existe um hemocentro com este nome exato
-    fun findByNomeIgnoreCase(nome: String): Hemocentro?
+    @Query(
+        """
+        select h
+        from Hemocentro h
+        where (
+            :cidade = ''
+            or locate(lower(:cidade), lower(h.cidade)) > 0
+        )
+        and (
+            :estado = ''
+            or lower(h.estado) = lower(:estado)
+        )
+        order by h.nome
+        """
+    )
+    fun buscarPorLocalizacao(
+        @Param("cidade") cidade: String,
+        @Param("estado") estado: String
+    ): List<Hemocentro>
 }

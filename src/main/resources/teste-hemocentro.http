@@ -1,0 +1,122 @@
+@baseUrl = http://localhost:8080
+@tokenHemocentro = 3KXBftWlA0nbOedVW97z-roXZ0SO94-jpg3J9vumoiY
+@tokenDoador = 5LBwh9lrZllVKuU65onyqppH3AbA91YAeZi7A2-F6JQ
+
+### 1. Cadastrar instituição e responsável
+### Esperado: 201 Created
+### Use um nome e e-mail ainda não cadastrados
+
+POST {{baseUrl}}/api/hemocentros
+Content-Type: application/json
+
+{
+  "nome": "Hemocentro Demonstracao SLZ",
+  "endereco": "Avenida de Demonstracao, 100",
+  "cidade": "São Luís",
+  "estado": "MA",
+  "telefone": "9833334444",
+  "responsavel": {
+    "nome": "Responsavel Demonstracao",
+    "email": "responsavel.slz@example.com",
+    "senha": "Teste@123",
+    "telefone": "98999998888"
+  }
+}
+
+### 2. Login do responsável
+### Esperado: 200 OK
+### usuario.tipoUsuario deve ser hemocentro
+### usuario.hemocentroId deve estar preenchido
+### Copie o token retornado para tokenHemocentro
+
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "responsavel.slz@example.com",
+  "senha": "Teste@123"
+}
+
+### 3. Consultar usuário autenticado
+### Esperado: 200 OK com perfil hemocentro
+
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer {{tokenHemocentro}}
+
+### 4. Consultar a própria instituição
+### Esperado: 200 OK
+
+GET {{baseUrl}}/api/hemocentros/me
+Authorization: Bearer {{tokenHemocentro}}
+
+### 5. Consultar instituição sem login
+### Esperado: 401 Unauthorized
+
+GET {{baseUrl}}/api/hemocentros/me
+
+### 6. Login de doador
+### Use a conta que você cadastrou anteriormente
+### Copie o token retornado para tokenDoador
+
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "doador.teste@example.com",
+  "senha": "Teste@123"
+}
+
+### 7. Doador tentando acessar a área institucional
+### Esperado: 403 Forbidden
+
+GET {{baseUrl}}/api/hemocentros/me
+Authorization: Bearer {{tokenDoador}}
+
+### 8. Busca pública por cidade e estado
+### Esperado: apenas instituições que atendam aos dois filtros
+
+GET {{baseUrl}}/api/hemocentros/buscar?cidade=Lu%C3%ADs&estado=MA
+
+### 9. Busca pública apenas por estado
+
+GET {{baseUrl}}/api/hemocentros/buscar?estado=MA
+
+### 10. Busca pública com cidade inexistente
+### Esperado: lista vazia
+
+GET {{baseUrl}}/api/hemocentros/buscar?cidade=CidadeInexistenteXYZ&estado=MA
+
+### 11. Listar instituições sem filtros
+
+GET {{baseUrl}}/api/hemocentros/buscar
+
+### 12. Cadastro duplicado
+### Execute após o teste 1
+### Esperado: 400 com Hemocentro já existente
+
+POST {{baseUrl}}/api/hemocentros
+Content-Type: application/json
+
+{
+  "nome": "Hemocentro Demonstracao SLZ",
+  "endereco": "Avenida de Demonstracao, 100",
+  "cidade": "São Luís",
+  "estado": "MA",
+  "responsavel": {
+    "nome": "Outro Responsavel",
+    "email": "outro.responsavel@example.com",
+    "senha": "Teste@123"
+  }
+}
+
+### 13. Logout do responsável
+### Esperado: 204 No Content
+
+POST {{baseUrl}}/api/auth/logout
+Authorization: Bearer {{tokenHemocentro}}
+
+### 14. Consultar instituição após logout
+### Esperado: 401 Unauthorized
+
+GET {{baseUrl}}/api/hemocentros/me
+Authorization: Bearer {{tokenHemocentro}}

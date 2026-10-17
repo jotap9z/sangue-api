@@ -4,6 +4,7 @@ import com.sangueplus.api.dtos.LoginRequest
 import com.sangueplus.api.dtos.LoginResponse
 import com.sangueplus.api.dtos.UsuarioResponse
 import com.sangueplus.api.models.Sessao
+import com.sangueplus.api.models.Usuario
 import com.sangueplus.api.repositories.SessaoRepository
 import com.sangueplus.api.repositories.UsuarioRepository
 import org.springframework.http.HttpStatus
@@ -26,8 +27,12 @@ class AuthService(
     private val encoder = BCryptPasswordEncoder()
     private val random = SecureRandom()
 
-    private val hashSimulado =
+    private val hashSimulado = requireNotNull(
         encoder.encode("SenhaSimulada!123")
+    )
+
+    private val formatoBcrypt =
+        Regex("^\\$2[aby]\\$\\d{2}\\$[./A-Za-z0-9]{53}$")
 
     @Transactional
     fun login(request: LoginRequest): LoginResponse {
@@ -44,13 +49,32 @@ class AuthService(
 
         val usuario = usuarios.findByEmailIgnoreCase(email)
 
+        // Contas antigas com senha sem hash não são autenticadas.
+        val hashArmazenado = usuario?.senhaHash
+        val hashValido = hashArmazenado != null &&
+                formatoBcrypt.matches(hashArmazenado)
+
         val senhaCorreta = encoder.matches(
             request.senha,
-            usuario?.senhaHash ?: hashSimulado
+            if (hashValido) hashArmazenado else hashSimulado
         )
 
-        if (usuario == null || !senhaCorreta) {
+        if (usuario == null || !hashValido || !senhaCorreta) {
             naoAutorizado("E-mail ou senha inválidos.")
+        }
+
+        if (
+            usuario.tipoUsuario != "doador" &&
+            usuario.tipoUsuario != "hemocentro"
+        ) {
+            proibido("Perfil de acesso inválido.")
+        }
+
+        if (
+            usuario.tipoUsuario == "hemocentro" &&
+            usuario.hemocentro == null
+        ) {
+            proibido("Sua conta não está vinculada a um hemocentro.")
         }
 
         val bytes = ByteArray(32)
@@ -60,8 +84,7 @@ class AuthService(
             .withoutPadding()
             .encodeToString(bytes)
 
-        val expiraEm = Instant.now()
-            .plus(8, ChronoUnit.HOURS)
+        val expiraEm = Instant.now().plus(8, ChronoUnit.HOURS)
 
         sessoes.save(
             Sessao(
@@ -82,20 +105,42 @@ class AuthService(
     fun usuarioAtual(
         authorization: String?
     ): UsuarioResponse {
-        val sessao = obterSessao(authorization)
+        return UsuarioResponse.from(
+            obterSessao(authorization).usuario
+        )
+    }
 
-        return UsuarioResponse.from(sessao.usuario)
+    @Transactional(readOnly = true)
+    fun exigirDoador(authorization: String?): Usuario {
+        val usuario = obterSessao(authorization).usuario
+
+        if (usuario.tipoUsuario != "doador") {
+            proibido("Esta operação é exclusiva para doadores.")
+        }
+
+        return usuario
+    }
+
+    @Transactional(readOnly = true)
+    fun exigirHemocentro(authorization: String?): Usuario {
+        val usuario = obterSessao(authorization).usuario
+
+        if (
+            usuario.tipoUsuario != "hemocentro" ||
+            usuario.hemocentro == null
+        ) {
+            proibido("Esta operação é exclusiva para hemocentros.")
+        }
+
+        return usuario
     }
 
     @Transactional
     fun logout(authorization: String?) {
-        val sessao = obterSessao(authorization)
-        sessoes.delete(sessao)
+        sessoes.delete(obterSessao(authorization))
     }
 
-    private fun obterSessao(
-        authorization: String?
-    ): Sessao {
+    private fun obterSessao(authorization: String?): Sessao {
         val partes = authorization
             ?.trim()
             ?.split(Regex("\\s+"))
@@ -106,34 +151,38 @@ class AuthService(
             !partes[0].equals("Bearer", ignoreCase = true) ||
             !Regex("^[A-Za-z0-9_-]{43}$").matches(partes[1])
         ) {
-            naoAutorizado("Informe um token Bearer válido.")
+            naoAutorizado("Entre na sua conta para continuar.")
         }
 
         val sessao = sessoes.findByTokenHash(
             hash(partes[1])
-        ) ?: naoAutorizado("Sessão inválida.")
+        ) ?: naoAutorizado("Sua sessão é inválida. Entre novamente.")
 
         if (!sessao.expiraEm.isAfter(Instant.now())) {
-            naoAutorizado("Sessão expirada. Entre novamente.")
+            naoAutorizado("Sua sessão expirou. Entre novamente.")
         }
 
         return sessao
     }
 
     private fun hash(token: String): String {
-        val bytes = MessageDigest.getInstance("SHA-256")
+        return MessageDigest.getInstance("SHA-256")
             .digest(token.toByteArray(Charsets.UTF_8))
-
-        return bytes.joinToString("") {
-            "%02x".format(it.toInt() and 0xff)
-        }
+            .joinToString("") {
+                "%02x".format(it.toInt() and 0xff)
+            }
     }
 
-    private fun naoAutorizado(
-        mensagem: String
-    ): Nothing {
+    private fun naoAutorizado(mensagem: String): Nothing {
         throw ResponseStatusException(
             HttpStatus.UNAUTHORIZED,
+            mensagem
+        )
+    }
+
+    private fun proibido(mensagem: String): Nothing {
+        throw ResponseStatusException(
+            HttpStatus.FORBIDDEN,
             mensagem
         )
     }
