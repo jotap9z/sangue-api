@@ -5,6 +5,10 @@ import java.time.Instant
 
 enum class StatusAgendamento {
     AGENDADO,
+    EM_ATENDIMENTO,
+    APROVADO_TRIAGEM,
+    NAO_APTO_TRIAGEM,
+    DOACAO_REALIZADA,
     CANCELADO_DOADOR,
     CANCELADO_HEMOCENTRO
 }
@@ -50,5 +54,16 @@ class Agendamento(
     var canceladoEm: Instant? = null,
 
     @Column(length = 250)
-    var motivoCancelamento: String? = null
+    var motivoCancelamento: String? = null,
+
+    var chegadaEm: Instant? = null,
+
+    var triagemPresencialEm: Instant? = null,
+
+    @Column(length = 500)
+    var observacaoTriagem: String? = null,
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "responsavel_triagem_id")
+    var responsavelTriagem: Usuario? = null
 )

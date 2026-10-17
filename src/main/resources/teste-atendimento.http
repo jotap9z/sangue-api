@@ -1,0 +1,161 @@
+@baseUrl = http://localhost:8080
+
+@tokenDoador = COLE_O_TOKEN_DO_DOADOR
+@tokenHemocentro = COLE_O_TOKEN_DO_HEMOCENTRO
+
+@hemocentroId = 0
+@horarioId = 0
+@agendamentoId = 0
+
+### ATENÇÃO:
+### Atualize a data e hora do teste 3 antes de executar.
+### Use hoje, entre 10 e 30 minutos à frente do horário atual.
+### A data abaixo é apenas o exemplo desta sessão.
+
+### 1. Login do doador
+### Esperado: 200
+### Copie o token para tokenDoador
+
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "doador.teste@example.com",
+  "senha": "Teste@123"
+}
+
+### 2. Login do hemocentro
+### Use a conta institucional validada
+### Copie token e usuario.hemocentroId para as variáveis
+
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "responsavel.slz@example.com",
+  "senha": "Teste@123"
+}
+
+### 3. Abrir horário para hoje
+### Atualize inicio para 10 a 30 minutos à frente do horário atual
+### Esperado: 201
+### Copie o id para horarioId
+
+POST {{baseUrl}}/api/hemocentros/me/horarios
+Authorization: Bearer {{tokenHemocentro}}
+Content-Type: application/json
+
+{
+  "inicio": "2026-10-17T20:10:00",
+  "capacidade": 1
+}
+
+### 4. Reservar
+### O doador precisa ter pré-triagem registrada
+### Esperado: 201
+### Copie o id para agendamentoId
+
+POST {{baseUrl}}/api/doadores/me/agendamentos
+Authorization: Bearer {{tokenDoador}}
+Content-Type: application/json
+
+{
+  "horarioId": {{horarioId}}
+}
+
+### 5. Tentar registrar coleta antes da triagem
+### Esperado: 409
+### Não deve criar uma doação
+
+POST {{baseUrl}}/api/hemocentros/me/agendamentos/{{agendamentoId}}/doacao
+Authorization: Bearer {{tokenHemocentro}}
+Content-Type: application/json
+
+{
+  "tipoSanguineoConfirmado": "O+",
+  "observacoes": "Registro acadêmico de demonstração."
+}
+
+### 6. Registrar chegada
+### Esperado: 200 com EM_ATENDIMENTO
+
+POST {{baseUrl}}/api/hemocentros/me/agendamentos/{{agendamentoId}}/chegada
+Authorization: Bearer {{tokenHemocentro}}
+
+### 7. Doador tentando registrar resultado clínico
+### Esperado: 403
+
+POST {{baseUrl}}/api/hemocentros/me/agendamentos/{{agendamentoId}}/triagem-presencial
+Authorization: Bearer {{tokenDoador}}
+Content-Type: application/json
+
+{
+  "aprovado": true,
+  "observacao": "Tentativa sem permissão."
+}
+
+### 8. Registrar aprovação presencial pelo hemocentro
+### Esperado: 200 com APROVADO_TRIAGEM
+
+POST {{baseUrl}}/api/hemocentros/me/agendamentos/{{agendamentoId}}/triagem-presencial
+Authorization: Bearer {{tokenHemocentro}}
+Content-Type: application/json
+
+{
+  "aprovado": true,
+  "observacao": "Avaliação presencial de demonstração registrada."
+}
+
+### 9. Confirmar coleta
+### Esperado: 200 com id da doação
+
+POST {{baseUrl}}/api/hemocentros/me/agendamentos/{{agendamentoId}}/doacao
+Authorization: Bearer {{tokenHemocentro}}
+Content-Type: application/json
+
+{
+  "tipoSanguineoConfirmado": "O+",
+  "observacoes": "Registro acadêmico de demonstração."
+}
+
+### 10. Repetir confirmação com os mesmos dados
+### Esperado: 200 com o MESMO id do teste 9
+### Não deve duplicar a doação
+
+POST {{baseUrl}}/api/hemocentros/me/agendamentos/{{agendamentoId}}/doacao
+Authorization: Bearer {{tokenHemocentro}}
+Content-Type: application/json
+
+{
+  "tipoSanguineoConfirmado": "O+",
+  "observacoes": "Registro acadêmico de demonstração."
+}
+
+### 11. Consultar histórico do doador
+### Esperado: 200 contendo a doação uma única vez
+
+GET {{baseUrl}}/api/doadores/me/doacoes?pagina=0&tamanho=20
+Authorization: Bearer {{tokenDoador}}
+
+### 12. Tentar cancelar uma doação já realizada
+### Esperado: 409
+### A mensagem de cancelamento será refinada posteriormente
+
+POST {{baseUrl}}/api/doadores/me/agendamentos/{{agendamentoId}}/cancelar
+Authorization: Bearer {{tokenDoador}}
+Content-Type: application/json
+
+{
+  "motivo": "Tentativa após conclusão."
+}
+
+### 13. Consultar histórico sem sessão
+### Esperado: 401
+
+GET {{baseUrl}}/api/doadores/me/doacoes
+
+### 14. Hemocentro tentando consultar histórico pela rota do doador
+### Esperado: 403
+
+GET {{baseUrl}}/api/doadores/me/doacoes
+Authorization: Bearer {{tokenHemocentro}}
