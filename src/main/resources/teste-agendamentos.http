@@ -1,0 +1,164 @@
+@baseUrl = http://localhost:8080
+
+@tokenDoador = COLE_O_TOKEN_DO_DOADOR
+@tokenHemocentro = COLE_O_TOKEN_DO_HEMOCENTRO
+
+@hemocentroId = 0
+@horarioId = 0
+@agendamentoId = 0
+
+@de = 2026-10-18
+@ate = 2026-10-18
+
+### 1. Login do doador
+### Esperado: 200
+### Atualize tokenDoador
+### Esse doador precisa ter respondido à pré-triagem
+
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "doador.teste@example.com",
+  "senha": "Teste@123"
+}
+
+### 2. Login do responsável
+### Use o e-mail da conta institucional validada anteriormente
+### Esperado: 200
+### Atualize tokenHemocentro
+### Copie usuario.hemocentroId para hemocentroId
+
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "responsavel.slz@example.com",
+  "senha": "Teste@123"
+}
+
+### 3. Hemocentro abre um horário com uma vaga
+### Esperado: 201
+### Copie o id retornado para horarioId
+### Se já existir, consulte no teste 4 e use o id existente
+
+POST {{baseUrl}}/api/hemocentros/me/horarios
+Authorization: Bearer {{tokenHemocentro}}
+Content-Type: application/json
+
+{
+  "inicio": "2026-10-18T09:00:00",
+  "capacidade": 1
+}
+
+### 4. Consultar horários
+### Esperado: 200 com uma vaga disponível no horário criado
+
+GET {{baseUrl}}/api/hemocentros/{{hemocentroId}}/horarios?de={{de}}&ate={{ate}}
+
+### 5. Doador reserva
+### Esperado: 201 com status AGENDADO
+### Copie o id retornado para agendamentoId
+
+POST {{baseUrl}}/api/doadores/me/agendamentos
+Authorization: Bearer {{tokenDoador}}
+Content-Type: application/json
+
+{
+  "horarioId": {{horarioId}}
+}
+
+### 6. Repetir a mesma reserva
+### Esperado: 409
+
+POST {{baseUrl}}/api/doadores/me/agendamentos
+Authorization: Bearer {{tokenDoador}}
+Content-Type: application/json
+
+{
+  "horarioId": {{horarioId}}
+}
+
+### 7. Consultar vagas após reserva
+### Esperado: vagasDisponiveis igual a zero no horário reservado
+
+GET {{baseUrl}}/api/hemocentros/{{hemocentroId}}/horarios?de={{de}}&ate={{ate}}
+
+### 8. Consultar agenda do doador
+### Esperado: 200 contendo o agendamento criado
+
+GET {{baseUrl}}/api/doadores/me/agendamentos?de={{de}}&ate={{ate}}
+Authorization: Bearer {{tokenDoador}}
+
+### 9. Consultar agenda do hemocentro
+### Esperado: 200 contendo o mesmo agendamento
+
+GET {{baseUrl}}/api/hemocentros/me/agendamentos?de={{de}}&ate={{ate}}
+Authorization: Bearer {{tokenHemocentro}}
+
+### 10. Doador tentando abrir horário institucional
+### Esperado: 403
+
+POST {{baseUrl}}/api/hemocentros/me/horarios
+Authorization: Bearer {{tokenDoador}}
+Content-Type: application/json
+
+{
+  "inicio": "2026-10-18T10:00:00",
+  "capacidade": 1
+}
+
+### 11. Consulta privada sem sessão
+### Esperado: 401
+
+GET {{baseUrl}}/api/doadores/me/agendamentos?de={{de}}&ate={{ate}}
+
+### 12. Cancelar como doador
+### Esperado: 200 com status CANCELADO_DOADOR
+
+POST {{baseUrl}}/api/doadores/me/agendamentos/{{agendamentoId}}/cancelar
+Authorization: Bearer {{tokenDoador}}
+Content-Type: application/json
+
+{
+  "motivo": "Não poderei comparecer."
+}
+
+### 13. Consultar vagas após cancelamento
+### Esperado: uma vaga disponível novamente
+
+GET {{baseUrl}}/api/hemocentros/{{hemocentroId}}/horarios?de={{de}}&ate={{ate}}
+
+### 14. Reservar novamente após cancelamento
+### Esperado: 201, com novo id
+### Substitua agendamentoId pelo novo id retornado
+
+POST {{baseUrl}}/api/doadores/me/agendamentos
+Authorization: Bearer {{tokenDoador}}
+Content-Type: application/json
+
+{
+  "horarioId": {{horarioId}}
+}
+
+### 15. Cancelar a nova reserva como hemocentro
+### Esperado: 200 com status CANCELADO_HEMOCENTRO
+
+POST {{baseUrl}}/api/hemocentros/me/agendamentos/{{agendamentoId}}/cancelar
+Authorization: Bearer {{tokenHemocentro}}
+Content-Type: application/json
+
+{
+  "motivo": "Horário indisponível para atendimento."
+}
+
+### 16. Cancelar novamente
+### Esperado: 409
+
+POST {{baseUrl}}/api/hemocentros/me/agendamentos/{{agendamentoId}}/cancelar
+Authorization: Bearer {{tokenHemocentro}}
+Content-Type: application/json
+
+{
+  "motivo": "Repetição do cancelamento."
+}
