@@ -1,0 +1,154 @@
+@baseUrl = http://localhost:8080
+
+@tokenDoador = COLE_O_TOKEN_DO_DOADOR
+@tokenHemocentro = COLE_O_TOKEN_DO_HEMOCENTRO
+
+@hemocentroId = 0
+
+### Antes do primeiro cadastro de O-, mantenha null.
+### Se O- já existir, consulte o teste 3 e informe sua versão.
+@versaoAtual = null
+
+### Depois do teste 4, copie a versão retornada para estas duas variáveis.
+### Após o teste 6, atualize apenas versaoAtual.
+@versaoAnterior = null
+
+### 1. Login do responsável
+### Copie o token e usuario.hemocentroId para as variáveis
+
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "responsavel.slz@example.com",
+  "senha": "Teste@123"
+}
+
+### 2. Login do doador
+### Copie o token para tokenDoador
+
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "doador.teste@example.com",
+  "senha": "Teste@123"
+}
+
+### 3. Consultar estoque da instituição
+### Esperado: 200 com oito tipos
+### Tipos sem registro devem aparecer como NAO_INFORMADO
+### Confira a versão de O- antes do teste 4
+
+GET {{baseUrl}}/api/hemocentros/me/estoque
+Authorization: Bearer {{tokenHemocentro}}
+
+### 4. Informar estoque O-
+### Esperado: 200, quantidade 3 e situacao CRITICO
+### Copie a versao retornada para versaoAtual e versaoAnterior
+
+PUT {{baseUrl}}/api/hemocentros/me/estoque/O-
+Authorization: Bearer {{tokenHemocentro}}
+Content-Type: application/json
+
+{
+  "quantidadeDisponivel": 20,
+  "nivelMinimo": 5,
+  "nivelIdeal": 15,
+  "versao": {{versaoAtual}}
+}
+
+### 5. Consulta pública
+### Esperado: mesmo estoque informado pelo hemocentro
+
+GET {{baseUrl}}/api/hemocentros/{{hemocentroId}}/estoque
+
+### 6. Atualizar O- para nível normal
+### Esperado: 200, quantidade 20 e situacao NORMAL
+### Atualize apenas versaoAtual com a nova versão retornada
+
+PUT {{baseUrl}}/api/hemocentros/me/estoque/O-
+Authorization: Bearer {{tokenHemocentro}}
+Content-Type: application/json
+
+{
+  "quantidadeDisponivel": 20,
+  "nivelMinimo": 5,
+  "nivelIdeal": 15,
+  "versao": {{versaoAtual}}
+}
+
+### 7. Tentar salvar com a versão anterior
+### Esperado: 409
+### O estoque deve continuar com 20 bolsas
+
+PUT {{baseUrl}}/api/hemocentros/me/estoque/O-
+Authorization: Bearer {{tokenHemocentro}}
+Content-Type: application/json
+
+{
+  "quantidadeDisponivel": 1,
+  "nivelMinimo": 5,
+  "nivelIdeal": 15,
+  "versao": {{versaoAnterior}}
+}
+
+### 8. Doador tentando alterar estoque
+### Esperado: 403
+
+PUT {{baseUrl}}/api/hemocentros/me/estoque/O-
+Authorization: Bearer {{tokenDoador}}
+Content-Type: application/json
+
+{
+  "quantidadeDisponivel": 50,
+  "nivelMinimo": 5,
+  "nivelIdeal": 15,
+  "versao": {{versaoAtual}}
+}
+
+### 9. Quantidade negativa
+### Esperado: 400
+
+PUT {{baseUrl}}/api/hemocentros/me/estoque/O-
+Authorization: Bearer {{tokenHemocentro}}
+Content-Type: application/json
+
+{
+  "quantidadeDisponivel": -1,
+  "nivelMinimo": 5,
+  "nivelIdeal": 15,
+  "versao": {{versaoAtual}}
+}
+
+### 10. Tipo sanguíneo inválido
+### Esperado: 400
+
+PUT {{baseUrl}}/api/hemocentros/me/estoque/X-
+Authorization: Bearer {{tokenHemocentro}}
+Content-Type: application/json
+
+{
+  "quantidadeDisponivel": 10,
+  "nivelMinimo": 5,
+  "nivelIdeal": 15,
+  "versao": null
+}
+
+### 11. Alteração sem sessão
+### Esperado: 401
+
+PUT {{baseUrl}}/api/hemocentros/me/estoque/O-
+Content-Type: application/json
+
+{
+  "quantidadeDisponivel": 10,
+  "nivelMinimo": 5,
+  "nivelIdeal": 15,
+  "versao": {{versaoAtual}}
+}
+
+### 12. Confirmar que as tentativas inválidas não alteraram os dados
+### Esperado: O- com 20 bolsas e situacao NORMAL
+
+GET {{baseUrl}}/api/hemocentros/{{hemocentroId}}/estoque
