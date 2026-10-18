@@ -1,6 +1,6 @@
 @baseUrl = http://localhost:8080
-@tokenHemocentro = 3KXBftWlA0nbOedVW97z-roXZ0SO94-jpg3J9vumoiY
-@tokenDoador = 5LBwh9lrZllVKuU65onyqppH3AbA91YAeZi7A2-F6JQ
+@tokenDoador = COLE_O_TOKEN_DO_DOADOR
+@tokenHemocentro = COLE_O_TOKEN_DO_HEMOCENTRO
 
 ### 1. Cadastrar instituição e responsável
 ### Esperado: 201 Created

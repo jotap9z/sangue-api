@@ -46,7 +46,7 @@ Authorization: Bearer {{tokenHemocentro}}
 Content-Type: application/json
 
 {
-  "inicio": "2026-10-17T20:10:00",
+  "inicio": "2026-10-17T21:50",
   "capacidade": 1
 }
 

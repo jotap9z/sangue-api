@@ -1,5 +1,6 @@
 package com.sangueplus.api.controllers
 
+import com.sangueplus.api.dtos.AtualizarHemocentroRequest
 import com.sangueplus.api.dtos.CadastroHemocentroRequest
 import com.sangueplus.api.dtos.CadastroHemocentroResponse
 import com.sangueplus.api.dtos.HemocentroResponse
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.*
 class HemocentroController(
     private val service: HemocentroService
 ) {
+
     @PostMapping
     fun cadastrarHemocentro(
         @RequestBody request: CadastroHemocentroRequest
@@ -24,8 +26,11 @@ class HemocentroController(
 
     @GetMapping("/buscar")
     fun buscarHemocentros(
-        @RequestParam(defaultValue = "") cidade: String,
-        @RequestParam(defaultValue = "") estado: String
+        @RequestParam(defaultValue = "")
+        cidade: String,
+
+        @RequestParam(defaultValue = "")
+        estado: String
     ): List<HemocentroResponse> {
         return service.listarHemocentros(cidade, estado)
     }
@@ -39,6 +44,21 @@ class HemocentroController(
         authorization: String?
     ): HemocentroResponse {
         return service.meuHemocentro(authorization)
+    }
+
+    @PutMapping("/me")
+    fun atualizarMeuHemocentro(
+        @RequestHeader(
+            value = "Authorization",
+            required = false
+        )
+        authorization: String?,
+        @RequestBody request: AtualizarHemocentroRequest
+    ): HemocentroResponse {
+        return service.atualizarMeuHemocentro(
+            authorization,
+            request
+        )
     }
 
     @GetMapping("/{id}")

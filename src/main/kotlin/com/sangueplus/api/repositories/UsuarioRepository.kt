@@ -17,6 +17,18 @@ interface UsuarioRepository : JpaRepository<Usuario, Long> {
 
     fun existsByEmail(email: String): Boolean
 
+    fun existsByCpf(cpf: String): Boolean
+
+    fun existsByCpfAndIdNot(
+        cpf: String,
+        id: Long
+    ): Boolean
+
+    fun existsByEmailIgnoreCaseAndIdNot(
+        email: String,
+        id: Long
+    ): Boolean
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select u from Usuario u where u.id = :id")
     fun buscarParaAgendamento(

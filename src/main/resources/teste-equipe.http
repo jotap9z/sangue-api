@@ -1,0 +1,300 @@
+@baseUrl = http://localhost:8080
+
+@tokenDoador = COLE_O_TOKEN_DO_DOADOR
+@tokenHemocentro = COLE_O_TOKEN_DO_HEMOCENTRO
+
+@emailFuncionario = atendimento.demo@example.com
+@senhaFuncionario = Demo@123456
+
+@codigoConvite = COLE_O_CONVITE
+@usuarioFuncionarioId = 0
+
+@senhaAdministrador = COLE_A_SENHA_ATUAL_LOCALMENTE
+
+
+### 1. Inicializar a equipe
+# Esperado: 200.
+# administradorPrincipal: true.
+# Exige que exista apenas uma conta institucional no hemocentro.
+# Execute uma vez para cada hemocentro existente.
+
+POST {{baseUrl}}/api/hemocentros/me/equipe/inicializar
+Authorization: Bearer {{tokenAdministrador}}
+
+
+### 2. Tentar inicializar novamente
+# Esperado: 409.
+# Não deve criar outro administrador principal.
+
+POST {{baseUrl}}/api/hemocentros/me/equipe/inicializar
+Authorization: Bearer {{tokenAdministrador}}
+
+
+### 3. Consultar o próprio vínculo
+# Esperado: 200, com função e permissão ADMINISTRADOR.
+
+GET {{baseUrl}}/api/hemocentros/me/equipe/me
+Authorization: Bearer {{tokenAdministrador}}
+
+
+### 4. Consultar equipe
+# Esperado: 200.
+# Inicialmente deve existir o administrador principal.
+
+GET {{baseUrl}}/api/hemocentros/me/equipe
+Authorization: Bearer {{tokenAdministrador}}
+
+
+### 5. Criar convite para atendimento
+# Esperado: 200.
+# Copie codigoConvite para a variável correspondente.
+# O código não é retornado nas consultas posteriores.
+
+POST {{baseUrl}}/api/hemocentros/me/equipe/convites
+Authorization: Bearer {{tokenAdministrador}}
+Content-Type: application/json
+
+{
+  "nome": "Atendente de demonstração",
+  "email": "{{emailFuncionario}}",
+  "telefone": "(98) 99999-1111",
+  "cargo": "Recepção",
+  "funcao": "ATENDIMENTO",
+  "permissao": "PADRAO"
+}
+
+
+### 6. Aceitar convite
+# Esperado: 200.
+# Copie usuarioId para usuarioFuncionarioId.
+# Para uma conta nova, a senha abaixo será a senha de acesso.
+
+POST {{baseUrl}}/api/equipe/convites/aceitar
+Content-Type: application/json
+
+{
+  "codigo": "{{codigoConvite}}",
+  "senha": "{{senhaFuncionario}}"
+}
+
+
+### 7. Tentar reutilizar o convite
+# Esperado: 409.
+
+POST {{baseUrl}}/api/equipe/convites/aceitar
+Content-Type: application/json
+
+{
+  "codigo": "{{codigoConvite}}",
+  "senha": "{{senhaFuncionario}}"
+}
+
+
+### 8. Login do funcionário
+# Esperado: 200.
+# Copie token para tokenFuncionario.
+
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{emailFuncionario}}",
+  "senha": "{{senhaFuncionario}}"
+}
+
+
+### 9. Funcionário consulta seu vínculo
+# Esperado: 200.
+# Função ATENDIMENTO e permissão PADRAO.
+
+GET {{baseUrl}}/api/hemocentros/me/equipe/me
+Authorization: Bearer {{tokenFuncionario}}
+
+
+### 10. Atendimento tentando gerenciar equipe
+# Esperado: 403.
+
+GET {{baseUrl}}/api/hemocentros/me/equipe
+Authorization: Bearer {{tokenFuncionario}}
+
+
+### 11. Atendimento tentando editar instituição
+# Esperado: 403, antes de alterar qualquer dado.
+
+PUT {{baseUrl}}/api/hemocentros/me
+Authorization: Bearer {{tokenFuncionario}}
+Content-Type: application/json
+
+{
+  "nome": "Não deve ser salvo",
+  "endereco": "Não deve ser salvo",
+  "cidade": "São Luís",
+  "estado": "MA"
+}
+
+
+### 12. Atendimento tentando consultar estoque interno
+# Esperado: 403.
+# A consulta pública de estoque continua pública.
+
+GET {{baseUrl}}/api/hemocentros/me/estoque
+Authorization: Bearer {{tokenFuncionario}}
+
+
+### 13. Alterar funcionário para estoque com somente visualização
+# Esperado: 200.
+
+PUT {{baseUrl}}/api/hemocentros/me/equipe/{{usuarioFuncionarioId}}/funcao
+Authorization: Bearer {{tokenAdministrador}}
+Content-Type: application/json
+
+{
+  "funcao": "ESTOQUE",
+  "permissao": "SOMENTE_VISUALIZACAO",
+  "cargo": "Consulta de estoque"
+}
+
+
+### 14. Funcionário consulta estoque interno
+# Esperado: 200.
+# A alteração de permissão vale nas próximas requisições.
+
+GET {{baseUrl}}/api/hemocentros/me/estoque
+Authorization: Bearer {{tokenFuncionario}}
+
+
+### 15. Funcionário somente visualização tenta alterar estoque
+# Esperado: 403.
+
+PUT {{baseUrl}}/api/hemocentros/me/estoque/O%2B
+Authorization: Bearer {{tokenFuncionario}}
+Content-Type: application/json
+
+{
+  "quantidadeDisponivel": 10,
+  "nivelMinimo": 5,
+  "nivelIdeal": 20,
+  "versao": null
+}
+
+
+### 16. Desativar funcionário
+# Esperado: 200, ativo false.
+# As sessões desse funcionário são removidas.
+
+PUT {{baseUrl}}/api/hemocentros/me/equipe/{{usuarioFuncionarioId}}/status
+Authorization: Bearer {{tokenAdministrador}}
+Content-Type: application/json
+
+{
+  "ativo": false
+}
+
+
+### 17. Tentar usar a sessão antiga
+# Esperado: 401, pois a sessão foi removida.
+
+GET {{baseUrl}}/api/hemocentros/me/equipe/me
+Authorization: Bearer {{tokenFuncionario}}
+
+
+### 18. Tentar fazer login enquanto desativado
+# Esperado: 403.
+
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{emailFuncionario}}",
+  "senha": "{{senhaFuncionario}}"
+}
+
+
+### 19. Reativar funcionário
+# Esperado: 200.
+# Ele precisará fazer login novamente.
+
+PUT {{baseUrl}}/api/hemocentros/me/equipe/{{usuarioFuncionarioId}}/status
+Authorization: Bearer {{tokenAdministrador}}
+Content-Type: application/json
+
+{
+  "ativo": true
+}
+
+
+### 20. Login após reativação
+# Esperado: 200.
+# Atualize tokenFuncionario.
+
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{emailFuncionario}}",
+  "senha": "{{senhaFuncionario}}"
+}
+
+
+### 21. Promover funcionário a administrador
+# Esperado: 200.
+# Ainda NÃO é o administrador principal.
+
+PUT {{baseUrl}}/api/hemocentros/me/equipe/{{usuarioFuncionarioId}}/funcao
+Authorization: Bearer {{tokenAdministrador}}
+Content-Type: application/json
+
+{
+  "funcao": "ADMINISTRADOR",
+  "permissao": "ADMINISTRADOR",
+  "cargo": "Administrador de demonstração"
+}
+
+
+### 22. Transferir administração com senha incorreta
+# Esperado: 400.
+# Nenhuma transferência deve acontecer.
+
+POST {{baseUrl}}/api/hemocentros/me/equipe/administrador-principal/transferir
+Authorization: Bearer {{tokenAdministrador}}
+Content-Type: application/json
+
+{
+  "novoAdministradorUsuarioId": {{usuarioFuncionarioId}},
+  "senhaAtual": "SenhaIncorreta!123"
+}
+
+
+### 23. Transferir administração com senha correta
+# Esperado: 200.
+# Este teste TRANSFERE a administração principal.
+# O administrador anterior permanece administrador comum.
+
+POST {{baseUrl}}/api/hemocentros/me/equipe/administrador-principal/transferir
+Authorization: Bearer {{tokenAdministrador}}
+Content-Type: application/json
+
+{
+  "novoAdministradorUsuarioId": {{usuarioFuncionarioId}},
+  "senhaAtual": "{{senhaAdministrador}}"
+}
+
+
+### 24. Conferir administrador principal atual
+# Esperado: 200.
+# administradorPrincipal: true no funcionário promovido.
+
+GET {{baseUrl}}/api/hemocentros/me/equipe/me
+Authorization: Bearer {{tokenFuncionario}}
+
+
+### 25. Tentar desativar o administrador principal
+# Esperado: 409.
+
+PUT {{baseUrl}}/api/hemocentros/me/equipe/{{usuarioFuncionarioId}}/status
+Authorization: Bearer {{tokenAdministrador}}
+Content-Type: application/json
+
+{
+  "ativo": false
+}

@@ -1,9 +1,6 @@
 package com.sangueplus.api.services
 
-import com.sangueplus.api.dtos.CadastroHemocentroRequest
-import com.sangueplus.api.dtos.CadastroHemocentroResponse
-import com.sangueplus.api.dtos.HemocentroResponse
-import com.sangueplus.api.dtos.UsuarioResponse
+import com.sangueplus.api.dtos.*
 import com.sangueplus.api.models.Hemocentro
 import com.sangueplus.api.models.Usuario
 import com.sangueplus.api.repositories.HemocentroRepository
@@ -21,6 +18,7 @@ class HemocentroService(
     private val usuarios: UsuarioRepository,
     private val authService: AuthService
 ) {
+
     private val encoder = BCryptPasswordEncoder()
 
     private val estados = setOf(
@@ -34,75 +32,50 @@ class HemocentroService(
     fun cadastrarHemocentro(
         request: CadastroHemocentroRequest
     ): CadastroHemocentroResponse {
-        val nome = request.nome.trim()
-        val endereco = request.endereco.trim()
-        val cidade = request.cidade.trim()
-        val estado = request.estado.trim().uppercase(Locale.ROOT)
-        val telefone = request.telefone
-            ?.trim()
-            ?.takeIf { it.isNotEmpty() }
+        val nome = texto(
+            request.nome,
+            2,
+            150,
+            "nome do hemocentro"
+        )
+
+        val endereco = texto(
+            request.endereco,
+            5,
+            255,
+            "endereço"
+        )
+
+        val cidade = texto(
+            request.cidade,
+            2,
+            100,
+            "nome da cidade"
+        )
+
+        val estado = validarEstado(request.estado)
+        val telefone = telefone(request.telefone, 20)
+        val cnpj = normalizarCnpj(request.cnpj)
+        val cnes = normalizarCnes(request.cnes)
+        val emailContato = emailOpcional(request.emailContato)
 
         val responsavel = request.responsavel
-        val nomeResponsavel = responsavel.nome.trim()
-        val email = responsavel.email.trim().lowercase(Locale.ROOT)
-        val telefoneResponsavel = responsavel.telefone
-            ?.trim()
-            ?.takeIf { it.isNotEmpty() }
 
-        validar(
-            nome.length in 2..150,
-            "O nome do hemocentro deve ter entre 2 e 150 caracteres."
+        val nomeResponsavel = texto(
+            responsavel.nome,
+            2,
+            100,
+            "nome do responsável"
         )
 
-        validar(
-            endereco.length in 5..255,
-            "O endereço deve ter entre 5 e 255 caracteres."
+        val email = emailObrigatorio(responsavel.email)
+
+        val telefoneResponsavel = telefone(
+            responsavel.telefone,
+            30
         )
 
-        validar(
-            cidade.length in 2..100,
-            "A cidade deve ter entre 2 e 100 caracteres."
-        )
-
-        validar(
-            estado in estados,
-            "Informe uma UF válida, por exemplo MA."
-        )
-
-        validar(
-            telefone == null || telefone.length <= 20,
-            "O telefone do hemocentro deve ter no máximo 20 caracteres."
-        )
-
-        validar(
-            nomeResponsavel.length in 2..100,
-            "O nome do responsável deve ter entre 2 e 100 caracteres."
-        )
-
-        validar(
-            email.length <= 100 &&
-                    Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")
-                        .matches(email),
-            "Informe um e-mail válido para o responsável."
-        )
-
-        validar(
-            telefoneResponsavel == null ||
-                    telefoneResponsavel.length <= 30,
-            "O telefone do responsável deve ter no máximo 30 caracteres."
-        )
-
-        validar(
-            responsavel.senha.length >= 6 &&
-                    responsavel.senha.toByteArray(Charsets.UTF_8).size <= 72 &&
-                    responsavel.senha.any { it.isUpperCase() } &&
-                    responsavel.senha.any {
-                        !it.isLetterOrDigit() && !it.isWhitespace()
-                    },
-            "A senha deve ter pelo menos 6 caracteres, " +
-                    "uma letra maiúscula e um caractere especial, " +
-                    "com limite de 72 bytes."
-        )
+        validarSenha(responsavel.senha)
 
         if (repository.existsByNomeIgnoreCase(nome)) {
             throw ResponseStatusException(
@@ -112,11 +85,10 @@ class HemocentroService(
         }
 
         if (usuarios.existsByEmailIgnoreCase(email)) {
-            throw ResponseStatusException(
-                HttpStatus.CONFLICT,
-                "Este e-mail já está cadastrado."
-            )
+            conflito("Este e-mail já está cadastrado.")
         }
+
+        verificarDocumentosDisponiveis(cnpj, cnes, 0)
 
         val senhaHash = requireNotNull(
             encoder.encode(responsavel.senha)
@@ -130,7 +102,10 @@ class HemocentroService(
                 endereco = endereco,
                 cidade = cidade,
                 estado = estado,
-                telefone = telefone
+                telefone = telefone,
+                cnpj = cnpj,
+                cnes = cnes,
+                emailContato = emailContato
             )
         )
 
@@ -158,7 +133,8 @@ class HemocentroService(
         estado: String
     ): List<HemocentroResponse> {
         val cidadeNormalizada = cidade.trim()
-        val estadoNormalizado = estado.trim().uppercase(Locale.ROOT)
+        val estadoNormalizado = estado.trim()
+            .uppercase(Locale.ROOT)
 
         validar(
             cidadeNormalizada.length <= 100,
@@ -166,7 +142,8 @@ class HemocentroService(
         )
 
         validar(
-            estadoNormalizado.isEmpty() || estadoNormalizado in estados,
+            estadoNormalizado.isEmpty() ||
+                    estadoNormalizado in estados,
             "Informe uma UF válida para pesquisar."
         )
 
@@ -195,7 +172,9 @@ class HemocentroService(
     fun meuHemocentro(
         authorization: String?
     ): HemocentroResponse {
-        val usuario = authService.exigirHemocentro(authorization)
+        val usuario = authService.exigirHemocentro(
+            authorization
+        )
 
         val hemocentro = usuario.hemocentro
             ?: throw ResponseStatusException(
@@ -204,6 +183,228 @@ class HemocentroService(
             )
 
         return HemocentroResponse.from(hemocentro)
+    }
+
+    @Transactional
+    fun atualizarMeuHemocentro(
+        authorization: String?,
+        request: AtualizarHemocentroRequest
+    ): HemocentroResponse {
+        val usuario = authService.exigirHemocentro(
+            authorization
+        )
+
+        val hemocentroId = usuario.hemocentro?.id
+            ?: throw ResponseStatusException(
+                HttpStatus.FORBIDDEN,
+                "Sua conta não está vinculada a um hemocentro."
+            )
+
+        val hemocentro = repository.buscarParaAlteracao(
+            hemocentroId
+        ) ?: throw ResponseStatusException(
+            HttpStatus.NOT_FOUND,
+            "Hemocentro não encontrado."
+        )
+
+        val nome = texto(
+            request.nome,
+            2,
+            150,
+            "nome do hemocentro"
+        )
+
+        val endereco = texto(
+            request.endereco,
+            5,
+            255,
+            "endereço"
+        )
+
+        val cidade = texto(
+            request.cidade,
+            2,
+            100,
+            "nome da cidade"
+        )
+
+        val estado = validarEstado(request.estado)
+        val telefone = telefone(request.telefone, 20)
+        val emailContato = emailOpcional(request.emailContato)
+
+        val cnpjInformado = normalizarCnpj(request.cnpj)
+        val cnesInformado = normalizarCnes(request.cnes)
+
+        if (
+            hemocentro.cnpj != null &&
+            cnpjInformado != null &&
+            cnpjInformado != hemocentro.cnpj
+        ) {
+            conflito(
+                "O CNPJ já registrado não pode ser alterado por este endpoint."
+            )
+        }
+
+        val cnpjFinal = cnpjInformado ?: hemocentro.cnpj
+        val cnesFinal = cnesInformado ?: hemocentro.cnes
+
+        if (
+            repository.existsByNomeIgnoreCaseAndIdNot(
+                nome,
+                hemocentro.id
+            )
+        ) {
+            conflito(
+                "Já existe outro hemocentro com esse nome."
+            )
+        }
+
+        verificarDocumentosDisponiveis(
+            cnpjFinal,
+            cnesFinal,
+            hemocentro.id
+        )
+
+        hemocentro.nome = nome
+        hemocentro.endereco = endereco
+        hemocentro.cidade = cidade
+        hemocentro.estado = estado
+        hemocentro.telefone = telefone
+        hemocentro.emailContato = emailContato
+        hemocentro.cnpj = cnpjFinal
+        hemocentro.cnes = cnesFinal
+
+        return HemocentroResponse.from(
+            repository.saveAndFlush(hemocentro)
+        )
+    }
+
+    private fun verificarDocumentosDisponiveis(
+        cnpj: String?,
+        cnes: String?,
+        idAtual: Long
+    ) {
+        if (
+            cnpj != null &&
+            repository.existsByCnpjAndIdNot(cnpj, idAtual)
+        ) {
+            conflito("Este CNPJ já está cadastrado.")
+        }
+
+        if (
+            cnes != null &&
+            repository.existsByCnesAndIdNot(cnes, idAtual)
+        ) {
+            conflito("Este CNES já está cadastrado.")
+        }
+    }
+
+    private fun normalizarCnpj(valor: String?): String? {
+        val informado = valor?.trim()
+            ?.takeIf { it.isNotEmpty() }
+            ?: return null
+
+        val normalizado = informado
+            .replace(Regex("[.\\-/\\s]"), "")
+            .uppercase(Locale.ROOT)
+
+        validar(
+            Regex("^[A-Z0-9]{14}$").matches(normalizado),
+            "Informe o CNPJ com 14 caracteres, sem contar a pontuação."
+        )
+
+        return normalizado
+    }
+
+    private fun normalizarCnes(valor: String?): String? {
+        val cnes = valor?.trim()
+            ?.takeIf { it.isNotEmpty() }
+            ?: return null
+
+        validar(
+            Regex("^[0-9]{7}$").matches(cnes),
+            "Informe o CNES com 7 dígitos."
+        )
+
+        return cnes
+    }
+
+    private fun texto(
+        valor: String,
+        minimo: Int,
+        maximo: Int,
+        campo: String
+    ): String {
+        val normalizado = valor.trim()
+
+        validar(
+            normalizado.length in minimo..maximo,
+            "O $campo deve ter entre $minimo e $maximo caracteres."
+        )
+
+        return normalizado
+    }
+
+    private fun validarEstado(valor: String): String {
+        val estado = valor.trim().uppercase(Locale.ROOT)
+
+        validar(
+            estado in estados,
+            "Informe uma UF válida, por exemplo MA."
+        )
+
+        return estado
+    }
+
+    private fun telefone(
+        valor: String?,
+        limite: Int
+    ): String? {
+        val telefone = valor?.trim()
+            ?.takeIf { it.isNotEmpty() }
+
+        validar(
+            telefone == null || telefone.length <= limite,
+            "O telefone deve ter no máximo $limite caracteres."
+        )
+
+        return telefone
+    }
+
+    private fun emailObrigatorio(valor: String): String {
+        val email = valor.trim().lowercase(Locale.ROOT)
+
+        validar(
+            email.length <= 100 &&
+                    Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")
+                        .matches(email),
+            "Informe um e-mail válido."
+        )
+
+        return email
+    }
+
+    private fun emailOpcional(valor: String?): String? {
+        val email = valor?.trim()
+            ?.takeIf { it.isNotEmpty() }
+            ?: return null
+
+        return emailObrigatorio(email)
+    }
+
+    private fun validarSenha(senha: String) {
+        validar(
+            senha.length >= 6 &&
+                    senha.toByteArray(Charsets.UTF_8).size <= 72 &&
+                    senha.any { it.isUpperCase() } &&
+                    senha.any {
+                        !it.isLetterOrDigit() &&
+                                !it.isWhitespace()
+                    },
+            "A senha deve ter pelo menos 6 caracteres, " +
+                    "uma letra maiúscula e um caractere especial, " +
+                    "com limite de 72 bytes."
+        )
     }
 
     private fun validar(
@@ -216,5 +417,12 @@ class HemocentroService(
                 mensagem
             )
         }
+    }
+
+    private fun conflito(mensagem: String): Nothing {
+        throw ResponseStatusException(
+            HttpStatus.CONFLICT,
+            mensagem
+        )
     }
 }

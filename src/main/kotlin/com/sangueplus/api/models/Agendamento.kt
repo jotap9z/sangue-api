@@ -9,6 +9,8 @@ enum class StatusAgendamento {
     APROVADO_TRIAGEM,
     NAO_APTO_TRIAGEM,
     DOACAO_REALIZADA,
+    FALTOU,
+    ENCERRADO_SEM_COLETA,
     CANCELADO_DOADOR,
     CANCELADO_HEMOCENTRO
 }
@@ -55,6 +57,15 @@ class Agendamento(
 
     @Column(length = 250)
     var motivoCancelamento: String? = null,
+
+    var encerradoEm: Instant? = null,
+
+    @Column(length = 500)
+    var motivoEncerramento: String? = null,
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "encerrado_por_id")
+    var encerradoPor: Usuario? = null,
 
     var chegadaEm: Instant? = null,
 

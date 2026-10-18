@@ -1,0 +1,195 @@
+@baseUrl = http://localhost:8080
+
+@tokenDoador = COLE_O_TOKEN_DO_DOADOR
+@tokenHemocentro = COLE_O_TOKEN_DO_HEMOCENTRO
+
+@agendamentoId = 0
+@horarioId = 0
+
+@codigoAnterior = sangueplus:checkin:v1:MgpmbLsAPjFcyr8_h7QW-_bxDOaSx3tYu_XcySQ5jT0
+@codigoQr = sangueplus:checkin:v1:x4Ryb3DdxCmjJcIhJiUACpn6Gob-A1JOY0GlpePYpWM
+
+
+### PREPARAÇÃO
+# Faça login com as contas existentes e preencha os tokens acima.
+#
+# Use uma reserva AGENDADO para HOJE, cujo início esteja
+# entre 15 e 45 minutos à frente.
+#
+# A reserva deve ser do doador autenticado e pertencer
+# ao hemocentro autenticado.
+#
+# Preencha agendamentoId e horarioId com os IDs reais.
+#
+# Execute UMA requisição por vez, na ordem abaixo.
+#
+# Este cenário termina SEM COLETA.
+# Não use uma reserva que pretende utilizar no teste de doação.
+
+
+### 1. Consultar detalhes do atendimento
+# Esperado: 200.
+# Confira doador, agendamento e respostas da pré-triagem.
+
+GET {{baseUrl}}/api/hemocentros/me/agendamentos/{{agendamentoId}}/detalhes
+Authorization: Bearer {{tokenHemocentro}}
+
+
+### 2. Gerar o primeiro QR
+# Esperado: 200.
+# Copie o valor de "conteudo" da resposta para codigoAnterior.
+# Copie somente o valor, sem as aspas.
+
+POST {{baseUrl}}/api/doadores/me/agendamentos/{{agendamentoId}}/qr
+Authorization: Bearer {{tokenDoador}}
+
+
+### 3. Gerar novamente o QR
+# Esperado: 200, com conteúdo diferente do anterior.
+# Copie o novo "conteudo" para codigoQr.
+# Não execute novamente após copiar, pois isso substitui o código.
+
+POST {{baseUrl}}/api/doadores/me/agendamentos/{{agendamentoId}}/qr
+Authorization: Bearer {{tokenDoador}}
+
+
+### 4. Tentar utilizar o código anterior
+# Esperado: 404.
+# Esse erro é o resultado correto: o código foi substituído.
+
+POST {{baseUrl}}/api/hemocentros/me/checkins/validar
+Authorization: Bearer {{tokenHemocentro}}
+Content-Type: application/json
+
+{
+  "codigo": "{{codigoAnterior}}"
+}
+
+
+### 5. Validar o código atual
+# Esperado: 200.
+# O agendamento deve passar para EM_ATENDIMENTO.
+# chegadaEm deve estar preenchido.
+
+POST {{baseUrl}}/api/hemocentros/me/checkins/validar
+Authorization: Bearer {{tokenHemocentro}}
+Content-Type: application/json
+
+{
+  "codigo": "{{codigoQr}}"
+}
+
+
+### 6. Tentar reutilizar o mesmo código
+# Esperado: 409.
+# Esse erro é o resultado correto: o QR já foi utilizado.
+
+POST {{baseUrl}}/api/hemocentros/me/checkins/validar
+Authorization: Bearer {{tokenHemocentro}}
+Content-Type: application/json
+
+{
+  "codigo": "{{codigoQr}}"
+}
+
+
+### 7. Tentar acessar os detalhes institucionais como doador
+# Esperado: 403.
+# Esse erro confirma a restrição por perfil.
+
+GET {{baseUrl}}/api/hemocentros/me/agendamentos/{{agendamentoId}}/detalhes
+Authorization: Bearer {{tokenDoador}}
+
+
+### 8. Tentar encerrar sem informar motivo válido
+# Esperado: 400.
+# O atendimento deve continuar EM_ATENDIMENTO.
+
+POST {{baseUrl}}/api/hemocentros/me/agendamentos/{{agendamentoId}}/sem-coleta
+Authorization: Bearer {{tokenHemocentro}}
+Content-Type: application/json
+
+{
+  "motivo": ""
+}
+
+
+### 9. Encerrar sem coleta com motivo
+# Esperado: 200.
+# Status: ENCERRADO_SEM_COLETA.
+
+POST {{baseUrl}}/api/hemocentros/me/agendamentos/{{agendamentoId}}/sem-coleta
+Authorization: Bearer {{tokenHemocentro}}
+Content-Type: application/json
+
+{
+  "motivo": "Atendimento de demonstração encerrado sem realização de coleta."
+}
+
+
+### 10. Conferir o encerramento
+# Esperado: 200.
+# Confira motivoEncerramento e encerradoEm.
+
+GET {{baseUrl}}/api/hemocentros/me/agendamentos/{{agendamentoId}}/detalhes
+Authorization: Bearer {{tokenHemocentro}}
+
+
+### 11. Tentar aprovar triagem após o encerramento
+# Esperado: 409.
+# O atendimento encerrado não pode continuar para coleta.
+
+POST {{baseUrl}}/api/hemocentros/me/agendamentos/{{agendamentoId}}/triagem-presencial
+Authorization: Bearer {{tokenHemocentro}}
+Content-Type: application/json
+
+{
+  "aprovado": true,
+  "observacao": "Tentativa após encerramento."
+}
+
+
+### 12. Consultar histórico do doador
+# Esperado: 200.
+# Não deve existir uma doação associada ao agendamento
+# encerrado sem coleta.
+# Doações antigas podem continuar aparecendo normalmente.
+
+GET {{baseUrl}}/api/doadores/me/doacoes?pagina=0&tamanho=20
+Authorization: Bearer {{tokenDoador}}
+
+
+### 13. Consultar horários institucionais
+# Substitua as datas pelo dia do horário utilizado.
+# Esperado: 200.
+# A consulta inclui horários ativos e inativos.
+
+GET {{baseUrl}}/api/hemocentros/me/horarios?de=2026-10-17&ate=2026-10-17
+Authorization: Bearer {{tokenHemocentro}}
+
+
+### 14. Fechar horário para novas reservas
+# Esperado: 200, com ativo false.
+# O início do horário ainda precisa estar no futuro.
+# Se já passou, use o ID de outro horário futuro.
+# Reservas existentes não são canceladas automaticamente.
+
+PUT {{baseUrl}}/api/hemocentros/me/horarios/{{horarioId}}/disponibilidade
+Authorization: Bearer {{tokenHemocentro}}
+Content-Type: application/json
+
+{
+  "ativo": false
+}
+
+
+### 15. Reabrir o horário
+# Esperado: 200, com ativo true.
+
+PUT {{baseUrl}}/api/hemocentros/me/horarios/{{horarioId}}/disponibilidade
+Authorization: Bearer {{tokenHemocentro}}
+Content-Type: application/json
+
+{
+  "ativo": true
+}

@@ -26,5 +26,14 @@ class Hemocentro(
     var telefone: String? = null,
 
     @Column(name = "criado_em", updatable = false)
-    val criadoEm: LocalDateTime = LocalDateTime.now()
+    val criadoEm: LocalDateTime = LocalDateTime.now(),
+
+    @Column(length = 14, unique = true)
+    var cnpj: String? = null,
+
+    @Column(length = 7, unique = true)
+    var cnes: String? = null,
+
+    @Column(name = "email_contato", length = 100)
+    var emailContato: String? = null
 )

@@ -36,5 +36,11 @@ class Usuario(
     var hemocentro: Hemocentro? = null,
 
     @Column(name = "criado_em", updatable = false)
-    val criadoEm: LocalDateTime = LocalDateTime.now()
+    val criadoEm: LocalDateTime = LocalDateTime.now(),
+
+    @Column(length = 11, unique = true)
+    var cpf: String? = null,
+
+    @Column(length = 100)
+    var cidade: String? = null
 )

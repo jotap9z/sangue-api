@@ -10,7 +10,9 @@ data class CadastroDoadorRequest(
     val senha: String,
     val dataNascimento: LocalDate,
     val tipoSanguineo: String = "Nao_Sei",
-    val telefone: String? = null
+    val telefone: String? = null,
+    val cpf: String? = null,
+    val cidade: String? = null
 )
 
 data class LoginRequest(
@@ -26,11 +28,13 @@ data class UsuarioResponse(
     val tipoSanguineo: String,
     val telefone: String?,
     val dataNascimento: LocalDate?,
-    val hemocentroId: Long?
+    val hemocentroId: Long?,
+    val cpf: String? = null,
+    val cidade: String? = null
 ) {
     companion object {
-        fun from(usuario: Usuario): UsuarioResponse =
-            UsuarioResponse(
+        fun from(usuario: Usuario): UsuarioResponse {
+            return UsuarioResponse(
                 id = usuario.id,
                 nome = usuario.nome,
                 email = usuario.email,
@@ -38,8 +42,11 @@ data class UsuarioResponse(
                 tipoSanguineo = usuario.tipoSanguineo,
                 telefone = usuario.telefone,
                 dataNascimento = usuario.dataNascimento,
-                hemocentroId = usuario.hemocentro?.id
+                hemocentroId = usuario.hemocentro?.id,
+                cpf = usuario.cpf,
+                cidade = usuario.cidade
             )
+        }
     }
 }
 
@@ -48,4 +55,13 @@ data class LoginResponse(
     val tipoToken: String = "Bearer",
     val expiraEm: Instant,
     val usuario: UsuarioResponse
+)
+
+data class AtualizarPerfilDoadorRequest(
+    val nome: String,
+    val email: String,
+    val telefone: String? = null,
+    val cidade: String? = null,
+    val cpf: String? = null,
+    val senhaAtual: String? = null
 )

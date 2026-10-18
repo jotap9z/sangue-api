@@ -23,7 +23,9 @@ interface AgendamentoRepository :
                 com.sangueplus.api.models.StatusAgendamento.EM_ATENDIMENTO,
                 com.sangueplus.api.models.StatusAgendamento.APROVADO_TRIAGEM,
                 com.sangueplus.api.models.StatusAgendamento.NAO_APTO_TRIAGEM,
-                com.sangueplus.api.models.StatusAgendamento.DOACAO_REALIZADA
+                com.sangueplus.api.models.StatusAgendamento.DOACAO_REALIZADA,
+                com.sangueplus.api.models.StatusAgendamento.FALTOU,
+                com.sangueplus.api.models.StatusAgendamento.ENCERRADO_SEM_COLETA
             )
           )
         """
@@ -45,7 +47,9 @@ interface AgendamentoRepository :
                 com.sangueplus.api.models.StatusAgendamento.EM_ATENDIMENTO,
                 com.sangueplus.api.models.StatusAgendamento.APROVADO_TRIAGEM,
                 com.sangueplus.api.models.StatusAgendamento.NAO_APTO_TRIAGEM,
-                com.sangueplus.api.models.StatusAgendamento.DOACAO_REALIZADA
+                com.sangueplus.api.models.StatusAgendamento.DOACAO_REALIZADA,
+                com.sangueplus.api.models.StatusAgendamento.FALTOU,
+                com.sangueplus.api.models.StatusAgendamento.ENCERRADO_SEM_COLETA
             )
           )
         """

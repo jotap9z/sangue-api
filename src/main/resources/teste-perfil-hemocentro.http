@@ -1,0 +1,157 @@
+@baseUrl = http://localhost:8080
+
+@tokenHemocentro = COLE_O_TOKEN_DO_ADMINISTRADOR
+@tokenDoador = COLE_O_TOKEN_DO_DOADOR
+
+@hemocentroId = 0
+
+@nome = COLE_O_NOME_ATUAL_DO_HEMOCENTRO
+@endereco = COLE_O_ENDERECO_ATUAL
+@cidade = COLE_A_CIDADE_ATUAL
+@estado = MA
+@telefone = COLE_O_TELEFONE_ATUAL
+@emailContato = contato.demo@example.com
+
+
+### 1. Consultar perfil institucional
+# Esperado: 200.
+# Copie o id e os dados atuais para as variáveis acima.
+# Se já existir emailContato, use esse valor na variável.
+
+GET {{baseUrl}}/api/hemocentros/me
+Authorization: Bearer {{tokenHemocentro}}
+
+
+### 2. Atualizar perfil institucional
+# Esperado: 200.
+# CNPJ e CNES omitidos preservam os valores existentes.
+# O e-mail de contato é separado do e-mail usado no login.
+# Nome, endereço, cidade, estado, telefone e emailContato
+# serão substituídos pelos valores enviados.
+
+PUT {{baseUrl}}/api/hemocentros/me
+Authorization: Bearer {{tokenHemocentro}}
+Content-Type: application/json
+
+{
+  "nome": "{{nome}}",
+  "endereco": "{{endereco}}",
+  "cidade": "{{cidade}}",
+  "estado": "{{estado}}",
+  "telefone": "{{telefone}}",
+  "emailContato": "{{emailContato}}"
+}
+
+
+### 3. Conferir persistência
+# Esperado: 200 com os dados salvos.
+
+GET {{baseUrl}}/api/hemocentros/me
+Authorization: Bearer {{tokenHemocentro}}
+
+
+### 4. Conferir consulta pública por ID
+# Esperado: 200 com os dados institucionais.
+# Não deve retornar senha, token ou dados do responsável.
+
+GET {{baseUrl}}/api/hemocentros/{{hemocentroId}}
+
+
+### 5. CNES com formato inválido
+# Esperado: 400.
+# Nenhuma alteração deste pedido deve ser salva.
+
+PUT {{baseUrl}}/api/hemocentros/me
+Authorization: Bearer {{tokenHemocentro}}
+Content-Type: application/json
+
+{
+  "nome": "{{nome}}",
+  "endereco": "{{endereco}}",
+  "cidade": "{{cidade}}",
+  "estado": "{{estado}}",
+  "telefone": "{{telefone}}",
+  "emailContato": "{{emailContato}}",
+  "cnes": "123"
+}
+
+
+### 6. CNPJ com formato inválido
+# Esperado: 400.
+
+PUT {{baseUrl}}/api/hemocentros/me
+Authorization: Bearer {{tokenHemocentro}}
+Content-Type: application/json
+
+{
+  "nome": "{{nome}}",
+  "endereco": "{{endereco}}",
+  "cidade": "{{cidade}}",
+  "estado": "{{estado}}",
+  "telefone": "{{telefone}}",
+  "emailContato": "{{emailContato}}",
+  "cnpj": "123"
+}
+
+
+### 7. UF inválida
+# Esperado: 400.
+
+PUT {{baseUrl}}/api/hemocentros/me
+Authorization: Bearer {{tokenHemocentro}}
+Content-Type: application/json
+
+{
+  "nome": "{{nome}}",
+  "endereco": "{{endereco}}",
+  "cidade": "{{cidade}}",
+  "estado": "XX",
+  "telefone": "{{telefone}}",
+  "emailContato": "{{emailContato}}"
+}
+
+
+### 8. E-mail de contato inválido
+# Esperado: 400.
+
+PUT {{baseUrl}}/api/hemocentros/me
+Authorization: Bearer {{tokenHemocentro}}
+Content-Type: application/json
+
+{
+  "nome": "{{nome}}",
+  "endereco": "{{endereco}}",
+  "cidade": "{{cidade}}",
+  "estado": "{{estado}}",
+  "telefone": "{{telefone}}",
+  "emailContato": "email-invalido"
+}
+
+
+### 9. Doador tentando editar instituição
+# Esperado: 403.
+
+PUT {{baseUrl}}/api/hemocentros/me
+Authorization: Bearer {{tokenDoador}}
+Content-Type: application/json
+
+{
+  "nome": "{{nome}}",
+  "endereco": "{{endereco}}",
+  "cidade": "{{cidade}}",
+  "estado": "{{estado}}",
+  "telefone": "{{telefone}}",
+  "emailContato": "{{emailContato}}"
+}
+
+
+### 10. Consulta institucional sem autenticação
+# Esperado: 401.
+
+GET {{baseUrl}}/api/hemocentros/me
+
+
+### 11. Conferir pesquisa por localização
+# Esperado: 200.
+
+GET {{baseUrl}}/api/hemocentros/buscar?estado={{estado}}

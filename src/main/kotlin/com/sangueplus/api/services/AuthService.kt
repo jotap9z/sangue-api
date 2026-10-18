@@ -7,6 +7,7 @@ import com.sangueplus.api.models.Sessao
 import com.sangueplus.api.models.Usuario
 import com.sangueplus.api.repositories.SessaoRepository
 import com.sangueplus.api.repositories.UsuarioRepository
+import com.sangueplus.api.repositories.VinculoEquipeRepository
 import org.springframework.http.HttpStatus
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import org.springframework.stereotype.Service
@@ -22,8 +23,10 @@ import java.util.Locale
 @Service
 class AuthService(
     private val usuarios: UsuarioRepository,
-    private val sessoes: SessaoRepository
+    private val sessoes: SessaoRepository,
+    private val equipe: VinculoEquipeRepository
 ) {
+
     private val encoder = BCryptPasswordEncoder()
     private val random = SecureRandom()
 
@@ -48,9 +51,8 @@ class AuthService(
         }
 
         val usuario = usuarios.findByEmailIgnoreCase(email)
-
-        // Contas antigas com senha sem hash não são autenticadas.
         val hashArmazenado = usuario?.senhaHash
+
         val hashValido = hashArmazenado != null &&
                 formatoBcrypt.matches(hashArmazenado)
 
@@ -77,14 +79,20 @@ class AuthService(
             proibido("Sua conta não está vinculada a um hemocentro.")
         }
 
-        val bytes = ByteArray(32)
-        random.nextBytes(bytes)
+        verificarVinculo(usuario)
+
+        val bytes = ByteArray(32).also {
+            random.nextBytes(it)
+        }
 
         val token = Base64.getUrlEncoder()
             .withoutPadding()
             .encodeToString(bytes)
 
-        val expiraEm = Instant.now().plus(8, ChronoUnit.HOURS)
+        val expiraEm = Instant.now().plus(
+            8,
+            ChronoUnit.HOURS
+        )
 
         sessoes.save(
             Sessao(
@@ -111,7 +119,9 @@ class AuthService(
     }
 
     @Transactional(readOnly = true)
-    fun exigirDoador(authorization: String?): Usuario {
+    fun exigirDoador(
+        authorization: String?
+    ): Usuario {
         val usuario = obterSessao(authorization).usuario
 
         if (usuario.tipoUsuario != "doador") {
@@ -122,7 +132,9 @@ class AuthService(
     }
 
     @Transactional(readOnly = true)
-    fun exigirHemocentro(authorization: String?): Usuario {
+    fun exigirHemocentro(
+        authorization: String?
+    ): Usuario {
         val usuario = obterSessao(authorization).usuario
 
         if (
@@ -140,7 +152,9 @@ class AuthService(
         sessoes.delete(obterSessao(authorization))
     }
 
-    private fun obterSessao(authorization: String?): Sessao {
+    private fun obterSessao(
+        authorization: String?
+    ): Sessao {
         val partes = authorization
             ?.trim()
             ?.split(Regex("\\s+"))
@@ -156,20 +170,40 @@ class AuthService(
 
         val sessao = sessoes.findByTokenHash(
             hash(partes[1])
-        ) ?: naoAutorizado("Sua sessão é inválida. Entre novamente.")
+        ) ?: naoAutorizado(
+            "Sua sessão é inválida. Entre novamente."
+        )
 
         if (!sessao.expiraEm.isAfter(Instant.now())) {
             naoAutorizado("Sua sessão expirou. Entre novamente.")
         }
 
+        verificarVinculo(sessao.usuario)
+
         return sessao
+    }
+
+    private fun verificarVinculo(usuario: Usuario) {
+        val vinculo = equipe.findByUsuario_Id(usuario.id)
+            ?: return
+
+        if (!vinculo.ativo) {
+            proibido("Seu acesso institucional está desativado.")
+        }
+
+        if (
+            usuario.tipoUsuario != "hemocentro" ||
+            usuario.hemocentro?.id != vinculo.hemocentro.id
+        ) {
+            proibido("Vínculo institucional inválido.")
+        }
     }
 
     private fun hash(token: String): String {
         return MessageDigest.getInstance("SHA-256")
             .digest(token.toByteArray(Charsets.UTF_8))
             .joinToString("") {
-                "%02x".format(it.toInt() and 0xff)
+                "%02x".format(it.toInt() and 255)
             }
     }
 

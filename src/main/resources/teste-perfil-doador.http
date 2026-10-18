@@ -1,0 +1,151 @@
+@baseUrl = http://localhost:8080
+@tokenDoador = COLE_O_TOKEN_DO_DOADOR
+@tokenHemocentro = COLE_O_TOKEN_DO_HEMOCENTRO
+
+@emailAtual = doador.teste@example.com
+@emailNovo = COLE_O_EMAIL_NOVO
+@senhaAtual = COLE_A_SENHA_ATUAL
+
+
+### 1. Consultar perfil
+# Esperado: 200.
+# Confira os dados antes de executar alterações.
+
+GET {{baseUrl}}/api/doadores/me/perfil
+Authorization: Bearer {{tokenDoador}}
+
+
+### 2. Atualizar nome, telefone e cidade
+# Esperado: 200.
+# Preencha emailAtual com o e-mail real da conta.
+# Como o e-mail não mudou, senhaAtual não é necessária.
+# CPF omitido preserva o CPF já existente.
+# Este PUT substitui nome, email, telefone e cidade.
+
+PUT {{baseUrl}}/api/doadores/me/perfil
+Authorization: Bearer {{tokenDoador}}
+Content-Type: application/json
+
+{
+  "nome": "Doador de demonstração",
+  "email": "{{emailAtual}}",
+  "telefone": "(98) 99999-9999",
+  "cidade": "São Luís"
+}
+
+
+### 3. Conferir persistência
+# Esperado: 200 com os dados atualizados.
+
+GET {{baseUrl}}/api/doadores/me/perfil
+Authorization: Bearer {{tokenDoador}}
+
+
+### 4. CPF inválido
+# Esperado: 400.
+# Nenhuma alteração deste pedido deve ser salva.
+
+PUT {{baseUrl}}/api/doadores/me/perfil
+Authorization: Bearer {{tokenDoador}}
+Content-Type: application/json
+
+{
+  "nome": "Doador de demonstração",
+  "email": "{{emailAtual}}",
+  "telefone": "(98) 99999-9999",
+  "cidade": "São Luís",
+  "cpf": "111.111.111-11"
+}
+
+
+### 5. Alterar e-mail sem senha atual
+# Esperado: 400.
+# emailNovo deve ser diferente do atual e não estar cadastrado.
+
+PUT {{baseUrl}}/api/doadores/me/perfil
+Authorization: Bearer {{tokenDoador}}
+Content-Type: application/json
+
+{
+  "nome": "Doador de demonstração",
+  "email": "{{emailNovo}}",
+  "telefone": "(98) 99999-9999",
+  "cidade": "São Luís"
+}
+
+
+### 6. Alterar e-mail com senha incorreta
+# Esperado: 400.
+
+PUT {{baseUrl}}/api/doadores/me/perfil
+Authorization: Bearer {{tokenDoador}}
+Content-Type: application/json
+
+{
+  "nome": "Doador de demonstração",
+  "email": "{{emailNovo}}",
+  "telefone": "(98) 99999-9999",
+  "cidade": "São Luís",
+  "senhaAtual": "SenhaIncorreta!123"
+}
+
+
+### 7. Hemocentro tentando consultar perfil de doador
+# Esperado: 403.
+
+GET {{baseUrl}}/api/doadores/me/perfil
+Authorization: Bearer {{tokenHemocentro}}
+
+
+### 8. Consulta sem autenticação
+# Esperado: 401.
+
+GET {{baseUrl}}/api/doadores/me/perfil
+
+
+### 9. Alterar e-mail com senha correta
+# Esperado: 200.
+# Este teste MUDA o e-mail utilizado no login.
+# Não repita os testes anteriores sem ajustar emailAtual.
+
+PUT {{baseUrl}}/api/doadores/me/perfil
+Authorization: Bearer {{tokenDoador}}
+Content-Type: application/json
+
+{
+  "nome": "Doador de demonstração",
+  "email": "{{emailNovo}}",
+  "telefone": "(98) 99999-9999",
+  "cidade": "São Luís",
+  "senhaAtual": "{{senhaAtual}}"
+}
+
+
+### 10. Login usando o novo e-mail
+# Esperado: 200.
+# A senha permanece a mesma.
+
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{emailNovo}}",
+  "senha": "{{senhaAtual}}"
+}
+
+
+### 11. Restaurar o e-mail anterior
+# Esperado: 200.
+# A sessão anterior permanece válida nesta implementação.
+
+PUT {{baseUrl}}/api/doadores/me/perfil
+Authorization: Bearer {{tokenDoador}}
+Content-Type: application/json
+
+{
+  "nome": "Doador de demonstração",
+  "email": "{{emailAtual}}",
+  "telefone": "(98) 99999-9999",
+  "cidade": "São Luís",
+  "senhaAtual": "{{senhaAtual}}"
+}

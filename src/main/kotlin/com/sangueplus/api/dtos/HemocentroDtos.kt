@@ -8,7 +8,10 @@ data class CadastroHemocentroRequest(
     val cidade: String,
     val estado: String,
     val telefone: String? = null,
-    val responsavel: ResponsavelHemocentroRequest
+    val responsavel: ResponsavelHemocentroRequest,
+    val cnpj: String? = null,
+    val cnes: String? = null,
+    val emailContato: String? = null
 )
 
 data class ResponsavelHemocentroRequest(
@@ -18,24 +21,42 @@ data class ResponsavelHemocentroRequest(
     val telefone: String? = null
 )
 
+data class AtualizarHemocentroRequest(
+    val nome: String,
+    val endereco: String,
+    val cidade: String,
+    val estado: String,
+    val telefone: String? = null,
+    val cnpj: String? = null,
+    val cnes: String? = null,
+    val emailContato: String? = null
+)
+
 data class HemocentroResponse(
     val id: Long,
     val nome: String,
     val endereco: String,
     val cidade: String,
     val estado: String,
-    val telefone: String?
+    val telefone: String?,
+    val cnpj: String? = null,
+    val cnes: String? = null,
+    val emailContato: String? = null
 ) {
     companion object {
-        fun from(hemocentro: Hemocentro): HemocentroResponse =
-            HemocentroResponse(
+        fun from(hemocentro: Hemocentro): HemocentroResponse {
+            return HemocentroResponse(
                 id = hemocentro.id,
                 nome = hemocentro.nome,
                 endereco = hemocentro.endereco,
                 cidade = hemocentro.cidade,
                 estado = hemocentro.estado,
-                telefone = hemocentro.telefone
+                telefone = hemocentro.telefone,
+                cnpj = hemocentro.cnpj,
+                cnes = hemocentro.cnes,
+                emailContato = hemocentro.emailContato
             )
+        }
     }
 }
 
