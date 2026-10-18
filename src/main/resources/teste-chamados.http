@@ -1,0 +1,275 @@
+@baseUrl = http://localhost:8080
+
+@tokenAdministrador = COLE_O_TOKEN_DO_ADMINISTRADOR
+@tokenDoador = COLE_O_TOKEN_DO_DOADOR
+
+@chamadoId = 0
+@versaoInicial = 0
+@versaoAtual = 0
+
+
+### 1. Publicar chamado
+# Esperado: 201.
+# Copie chamado.id para chamadoId.
+# Copie chamado.versao para versaoInicial e versaoAtual.
+
+POST {{baseUrl}}/api/hemocentros/me/chamados
+Authorization: Bearer {{tokenAdministrador}}
+Content-Type: application/json
+
+{
+  "titulo": "Chamado de demonstração O-",
+  "tipoSanguineo": "O-",
+  "urgencia": "ALTA",
+  "metaDoadores": 20,
+  "mensagem": "Chamado fictício para demonstração acadêmica do aplicativo Sangue+."
+}
+
+
+### 2. Consultar chamados ativos da instituição
+# Esperado: 200.
+# O chamado deve aparecer em itens.
+
+GET {{baseUrl}}/api/hemocentros/me/chamados?status=ATIVO&pagina=0&tamanho=20
+Authorization: Bearer {{tokenAdministrador}}
+
+
+### 3. Consultar listagem pública
+# Esperado: 200.
+# Somente chamados ATIVO aparecem nesta listagem.
+
+GET {{baseUrl}}/api/chamados?pagina=0&tamanho=20
+
+
+### 4. Consultar detalhes públicos
+# Esperado: 200.
+# respostasAtivas deve ser 0 para o chamado recém-criado.
+
+GET {{baseUrl}}/api/chamados/{{chamadoId}}
+
+
+### 5. Doador registra interesse
+# Esperado: 200, ativa true.
+# Não cria agendamento ou doação.
+
+POST {{baseUrl}}/api/doadores/me/chamados/{{chamadoId}}/responder
+Authorization: Bearer {{tokenDoador}}
+
+
+### 6. Repetir resposta
+# Esperado: 200, com o MESMO id da resposta anterior.
+# Não deve duplicar o interessado.
+
+POST {{baseUrl}}/api/doadores/me/chamados/{{chamadoId}}/responder
+Authorization: Bearer {{tokenDoador}}
+
+
+### 7. Conferir quantidade
+# Esperado: 200.
+# respostasAtivas deve ser 1, mesmo após repetir a resposta.
+
+GET {{baseUrl}}/api/chamados/{{chamadoId}}
+
+
+### 8. Instituição consulta interessados
+# Esperado: 200.
+# Deve existir um interessado.
+
+GET {{baseUrl}}/api/hemocentros/me/chamados/{{chamadoId}}/interessados?pagina=0&tamanho=20
+Authorization: Bearer {{tokenAdministrador}}
+
+
+### 9. Doador tenta consultar lista institucional
+# Esperado: 403.
+
+GET {{baseUrl}}/api/hemocentros/me/chamados/{{chamadoId}}/interessados
+Authorization: Bearer {{tokenDoador}}
+
+
+### 10. Consultar minhas respostas
+# Esperado: 200.
+# Deve aparecer a resposta do doador autenticado.
+
+GET {{baseUrl}}/api/doadores/me/respostas-chamados?pagina=0&tamanho=20
+Authorization: Bearer {{tokenDoador}}
+
+
+### 11. Tentar mudar tipo com interessado ativo
+# Esperado: 409.
+# Nenhum dado deve ser alterado.
+
+PUT {{baseUrl}}/api/hemocentros/me/chamados/{{chamadoId}}
+Authorization: Bearer {{tokenAdministrador}}
+Content-Type: application/json
+
+{
+  "titulo": "Tentativa de alteração do tipo",
+  "tipoSanguineo": "A+",
+  "urgencia": "ALTA",
+  "metaDoadores": 20,
+  "mensagem": "Esta mudança deve ser recusada porque já existe interessado ativo.",
+  "versao": {{versaoAtual}}
+}
+
+
+### 12. Editar mensagem, meta e urgência
+# Esperado: 200.
+# Copie chamado.versao da resposta para versaoAtual.
+# Mantenha versaoInicial com o valor antigo.
+
+PUT {{baseUrl}}/api/hemocentros/me/chamados/{{chamadoId}}
+Authorization: Bearer {{tokenAdministrador}}
+Content-Type: application/json
+
+{
+  "titulo": "Chamado de demonstração atualizado",
+  "tipoSanguineo": "O-",
+  "urgencia": "CRITICA",
+  "metaDoadores": 25,
+  "mensagem": "Mensagem atualizada do chamado fictício usado na demonstração acadêmica.",
+  "versao": {{versaoAtual}}
+}
+
+
+### 13. Tentar editar com versão antiga
+# Esperado: 409.
+# Confirma a proteção contra sobrescrita de uma edição anterior.
+
+PUT {{baseUrl}}/api/hemocentros/me/chamados/{{chamadoId}}
+Authorization: Bearer {{tokenAdministrador}}
+Content-Type: application/json
+
+{
+  "titulo": "Não deve ser salvo",
+  "tipoSanguineo": "O-",
+  "urgencia": "BAIXA",
+  "metaDoadores": 5,
+  "mensagem": "Esta edição usa uma versão antiga e não deve ser salva.",
+  "versao": {{versaoInicial}}
+}
+
+
+### 14. Cancelar meu interesse
+# Esperado: 200, ativa false.
+
+DELETE {{baseUrl}}/api/doadores/me/chamados/{{chamadoId}}/resposta
+Authorization: Bearer {{tokenDoador}}
+
+
+### 15. Conferir quantidade após cancelamento
+# Esperado: 200, respostasAtivas 0.
+
+GET {{baseUrl}}/api/chamados/{{chamadoId}}
+
+
+### 16. Reativar meu interesse
+# Esperado: 200, ativa true.
+# O id da resposta deve continuar o mesmo.
+
+POST {{baseUrl}}/api/doadores/me/chamados/{{chamadoId}}/responder
+Authorization: Bearer {{tokenDoador}}
+
+
+### 17. Encerrar sem motivo válido
+# Esperado: 400.
+# O chamado permanece ATIVO.
+
+POST {{baseUrl}}/api/hemocentros/me/chamados/{{chamadoId}}/encerrar
+Authorization: Bearer {{tokenAdministrador}}
+Content-Type: application/json
+
+{
+  "motivo": "",
+  "versao": {{versaoAtual}}
+}
+
+
+### 18. Encerrar chamado
+# Esperado: 200, chamado.status ENCERRADO.
+# Não cancela agendamentos nem cria doações.
+
+POST {{baseUrl}}/api/hemocentros/me/chamados/{{chamadoId}}/encerrar
+Authorization: Bearer {{tokenAdministrador}}
+Content-Type: application/json
+
+{
+  "motivo": "Demonstração concluída.",
+  "versao": {{versaoAtual}}
+}
+
+
+### 19. Tentar responder após encerramento
+# Esperado: 409.
+
+POST {{baseUrl}}/api/doadores/me/chamados/{{chamadoId}}/responder
+Authorization: Bearer {{tokenDoador}}
+
+
+### 20. Consultar chamados encerrados da instituição
+# Esperado: 200.
+# O chamado deve aparecer nesta lista.
+
+GET {{baseUrl}}/api/hemocentros/me/chamados?status=ENCERRADO&pagina=0&tamanho=20
+Authorization: Bearer {{tokenAdministrador}}
+
+
+### 21. Conferir detalhes institucionais
+# Esperado: 200.
+# Confira motivoEncerramento e os responsáveis pelas operações.
+
+GET {{baseUrl}}/api/hemocentros/me/chamados/{{chamadoId}}
+Authorization: Bearer {{tokenAdministrador}}
+
+
+### 22. Conferir listagem pública
+# Esperado: 200.
+# O chamado encerrado não deve mais aparecer nos resultados.
+# Se houver muitos registros, a ausência apenas na primeira página
+# não é suficiente: confira também o status no teste 21.
+
+GET {{baseUrl}}/api/chamados?pagina=0&tamanho=20
+
+
+### 23. Publicação com meta inválida
+# Esperado: 400.
+
+POST {{baseUrl}}/api/hemocentros/me/chamados
+Authorization: Bearer {{tokenAdministrador}}
+Content-Type: application/json
+
+{
+  "tipoSanguineo": "O-",
+  "urgencia": "ALTA",
+  "metaDoadores": 0,
+  "mensagem": "Este chamado não deve ser criado porque sua meta é inválida."
+}
+
+
+### 24. Publicação com tipo inválido
+# Esperado: 400.
+
+POST {{baseUrl}}/api/hemocentros/me/chamados
+Authorization: Bearer {{tokenAdministrador}}
+Content-Type: application/json
+
+{
+  "tipoSanguineo": "X+",
+  "urgencia": "ALTA",
+  "metaDoadores": 20,
+  "mensagem": "Este chamado não deve ser criado porque o tipo sanguíneo é inválido."
+}
+
+
+### 25. Doador tentando publicar chamado institucional
+# Esperado: 403.
+
+POST {{baseUrl}}/api/hemocentros/me/chamados
+Authorization: Bearer {{tokenDoador}}
+Content-Type: application/json
+
+{
+  "tipoSanguineo": "O-",
+  "urgencia": "ALTA",
+  "metaDoadores": 20,
+  "mensagem": "Esta publicação deve ser recusada por falta de permissão institucional."
+}

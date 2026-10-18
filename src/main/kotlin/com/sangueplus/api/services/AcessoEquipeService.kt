@@ -50,6 +50,16 @@ class AcessoEquipeService(
     }
 
     @Transactional(readOnly = true)
+    fun exigirAcessoChamados(
+        authorization: String?,
+        escrita: Boolean = false
+    ): VinculoEquipe {
+        val membro = exigirMembro(authorization)
+        validarAcessoChamados(membro, escrita)
+        return membro
+    }
+
+    @Transactional(readOnly = true)
     fun autorizar(
         authorization: String?,
         metodo: String,
@@ -68,6 +78,14 @@ class AcessoEquipeService(
             .trimEnd('/')
 
         if (leitura && rota in setOf("", "/equipe/me")) {
+            return
+        }
+
+        if (
+            rota == "/chamados" ||
+            rota.startsWith("/chamados/")
+        ) {
+            validarAcessoChamados(membro, escrita = !leitura)
             return
         }
 
@@ -129,6 +147,35 @@ class AcessoEquipeService(
 
         if (!permitido) {
             negar("Sua função não permite esta operação.")
+        }
+    }
+
+    private fun validarAcessoChamados(
+        membro: VinculoEquipe,
+        escrita: Boolean
+    ) {
+        if (membro.permissao == PermissaoEquipe.ADMINISTRADOR) {
+            return
+        }
+
+        if (
+            escrita &&
+            membro.permissao == PermissaoEquipe.SOMENTE_VISUALIZACAO
+        ) {
+            negar("Sua permissão permite apenas consultas.")
+        }
+
+        val permitido = if (escrita) {
+            membro.funcao == FuncaoEquipe.ESTOQUE
+        } else {
+            membro.funcao in setOf(
+                FuncaoEquipe.ESTOQUE,
+                FuncaoEquipe.ATENDIMENTO
+            )
+        }
+
+        if (!permitido) {
+            negar("Sua função não permite esta operação com chamados.")
         }
     }
 
