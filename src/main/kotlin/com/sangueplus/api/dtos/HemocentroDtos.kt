@@ -41,7 +41,9 @@ data class HemocentroResponse(
     val telefone: String?,
     val cnpj: String? = null,
     val cnes: String? = null,
-    val emailContato: String? = null
+    val emailContato: String? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null
 ) {
     companion object {
         fun from(hemocentro: Hemocentro): HemocentroResponse {
@@ -54,7 +56,9 @@ data class HemocentroResponse(
                 telefone = hemocentro.telefone,
                 cnpj = hemocentro.cnpj,
                 cnes = hemocentro.cnes,
-                emailContato = hemocentro.emailContato
+                emailContato = hemocentro.emailContato,
+                latitude = hemocentro.latitude,
+                longitude = hemocentro.longitude
             )
         }
     }

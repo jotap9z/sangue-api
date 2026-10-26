@@ -58,6 +58,7 @@ class HemocentroService(
         val cnpj = normalizarCnpj(request.cnpj)
         val cnes = normalizarCnes(request.cnes)
         val emailContato = emailOpcional(request.emailContato)
+        validar(telefone != null && cnpj != null && cnes != null, "Telefone, CNPJ e CNES são obrigatórios no cadastro.")
 
         val responsavel = request.responsavel
 
@@ -75,6 +76,7 @@ class HemocentroService(
             30
         )
 
+        validar(telefoneResponsavel != null, "O telefone do responsável é obrigatório.")
         validarSenha(responsavel.senha)
 
         if (repository.existsByNomeIgnoreCase(nome)) {
@@ -130,8 +132,10 @@ class HemocentroService(
     @Transactional(readOnly = true)
     fun listarHemocentros(
         cidade: String,
-        estado: String
+        estado: String,
+        nome: String = ""
     ): List<HemocentroResponse> {
+        validar(nome.trim().length <= 150, "O filtro de nome deve ter no máximo 150 caracteres.")
         val cidadeNormalizada = cidade.trim()
         val estadoNormalizado = estado.trim()
             .uppercase(Locale.ROOT)
@@ -150,7 +154,7 @@ class HemocentroService(
         return repository.buscarPorLocalizacao(
             cidadeNormalizada,
             estadoNormalizado
-        ).map {
+        ).filter { nome.isBlank() || it.nome.contains(nome.trim(), ignoreCase = true) }.map {
             HemocentroResponse.from(it)
         }
     }
@@ -368,6 +372,10 @@ class HemocentroService(
             "O telefone deve ter no máximo $limite caracteres."
         )
 
+        if (telefone != null) {
+            validar(Regex("^[0-9()\\s+.-]+$").matches(telefone) && telefone.filter { it in '0'..'9' }.length in 10..11,
+                "Informe um telefone com DDD e 10 ou 11 dígitos.")
+        }
         return telefone
     }
 

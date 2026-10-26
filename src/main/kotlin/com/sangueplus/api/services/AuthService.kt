@@ -24,7 +24,9 @@ import java.util.Locale
 class AuthService(
     private val usuarios: UsuarioRepository,
     private val sessoes: SessaoRepository,
-    private val equipe: VinculoEquipeRepository
+    private val equipe: VinculoEquipeRepository,
+    private val disponibilidade: com.sangueplus.api.complementos.ContaDisponivelService,
+    private val entityManager: jakarta.persistence.EntityManager
 ) {
 
     private val encoder = BCryptPasswordEncoder()
@@ -79,6 +81,13 @@ class AuthService(
             proibido("Sua conta não está vinculada a um hemocentro.")
         }
 
+        val bloqueado = usuarios.buscarParaAgendamento(usuario.id)
+            ?: naoAutorizado("E-mail ou senha inválidos.")
+        entityManager.refresh(bloqueado, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+        if (!encoder.matches(request.senha, bloqueado.senhaHash)) {
+            naoAutorizado("E-mail ou senha inválidos.")
+        }
+        disponibilidade.exigir(usuario.id)
         verificarVinculo(usuario)
 
         val bytes = ByteArray(32).also {
@@ -178,6 +187,7 @@ class AuthService(
             naoAutorizado("Sua sessão expirou. Entre novamente.")
         }
 
+        disponibilidade.exigir(sessao.usuario.id)
         verificarVinculo(sessao.usuario)
 
         return sessao

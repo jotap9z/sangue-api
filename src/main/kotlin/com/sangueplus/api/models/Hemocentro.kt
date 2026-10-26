@@ -35,5 +35,8 @@ class Hemocentro(
     var cnes: String? = null,
 
     @Column(name = "email_contato", length = 100)
-    var emailContato: String? = null
+    var emailContato: String? = null,
+
+    var latitude: Double? = null,
+    var longitude: Double? = null
 )

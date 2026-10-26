@@ -30,9 +30,10 @@ class HemocentroController(
         cidade: String,
 
         @RequestParam(defaultValue = "")
-        estado: String
+        estado: String,
+        @RequestParam(defaultValue = "") nome: String
     ): List<HemocentroResponse> {
-        return service.listarHemocentros(cidade, estado)
+        return service.listarHemocentros(cidade, estado, nome)
     }
 
     @GetMapping("/me")
