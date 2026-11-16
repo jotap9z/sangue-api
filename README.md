@@ -2,6 +2,8 @@
 
 API do Sangue+, escrita em Kotlin com Spring Boot e PostgreSQL. O [aplicativo Android](https://github.com/jotap9z/Sangue-) usa esta API para cadastro, login, agendamento, check-in, atendimento e gestão do hemocentro.
 
+> **Instalação em uma máquina nova:** comece por este guia para configurar o PostgreSQL, aplicar os scripts SQL e iniciar a API. Depois de confirmar que o servidor está respondendo, siga o [guia do Android](https://github.com/jotap9z/Sangue-/blob/main/README.md) e mantenha a API rodando durante os testes.
+
 ## 1. Preparar a máquina
 
 - Instale Git, um **JDK 25** e PostgreSQL com o cliente `psql` ou pgAdmin.
